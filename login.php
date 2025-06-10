@@ -1,8 +1,7 @@
 <?php
 try {
-  $conn = new PDO("mysql:host=localhost;dbname=dashboard", "root", "");
-  $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-  echo "Connected successfully";
+  $pdo = new PDO("mysql:host=localhost;dbname=dashboard", "root", "");
+  $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch(PDOException $e) {
   echo "Connection failed: " . $e->getMessage();
 }
@@ -10,7 +9,7 @@ try {
 session_start();
 
 if (isset($_SESSION['username'])) {
-header("Location: profile.php");
+header("Location: dashboard.php");
 exit;
 }
 
@@ -23,13 +22,13 @@ $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ?");
 $stmt->execute(array($username, $username));
 $user = $stmt->fetch();
 
-if ($user && password_verify($password, $user['password'])) {
+if ($user && $password === $user['password']) {
     $_SESSION['username'] = $user['username'];
     $_SESSION['email'] = $user['email'];
     $_SESSION['firstname'] = $user['firstname'];
     $_SESSION['lastname'] = $user['lastname'];
 
-    header("Location: profile.php");
+    header("Location: dashboard.php");
     exit;
     } else {
     $message = "Invalid username or password.";
@@ -41,7 +40,7 @@ if ($user && password_verify($password, $user['password'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spik en Span - Login</title>
+    <title>Login - Dashboard</title>
 </head>
 <body>
     <?php if (isset($message)): ?>
@@ -59,12 +58,8 @@ if ($user && password_verify($password, $user['password'])) {
             <br>
             <button type="submit" name="login">Login</button>
             <br>
-            <button type="button" onclick="window.location.href='register.php'">Doesn't have an account?</button>
+            <!-- <button type="button" onclick="window.location.href='register.php'">Doesn't have an account?</button>  old -->
         </form>
     </div>
-    <footer>
-        &copy; 2025 Spik en Span. Alle rechten voorbehouden.
-        <a href="privacyverklaring.html">Bekijk onze privacyverklaring</a>
-    </footer>
 </body>
 </html>
