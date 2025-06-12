@@ -178,24 +178,20 @@ foreach ($projects as $p) {
             padding: 1.1em 2em;
             text-decoration: none;
             border-left: 4px solid transparent;
-            transition: background 0.2s, border-color 0.2s;
             font-size: 1.08em;
             position: relative;
             overflow: hidden;
+            transition: background 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s;
+            box-shadow: none;
+        }
+        .sidebar a:hover, .sidebar a:focus {
+            background: var(--primary);
+            color: #fff;
+            border-left: 4px solid var(--primary-dark);
+            box-shadow: 0 0 16px 2px var(--primary), 0 2px 16px 0 var(--primary-dark);
         }
         .sidebar a::after {
-            content: "";
-            position: absolute;
-            left: 0; bottom: 0;
-            width: 100%;
-            height: 2px;
-            background: var(--primary);
-            transform: scaleX(0);
-            transition: transform 0.3s cubic-bezier(.4,0,.2,1);
-            transform-origin: left;
-        }
-        .sidebar a:hover::after, .sidebar a:focus::after {
-            transform: scaleX(1);
+            display: none; /* Remove underline animation */
         }
         .main {
             margin-left: 260px;
@@ -475,7 +471,7 @@ tr:hover {
                 </form>
             <?php endif; ?>
             <table>
-                <tr><th>Factuurnr</th><th>Klant</th><th>Bedrag</th><th></th><th></th><th>Verwijderen</th></tr>
+                <tr><th>Factuurnr</th><th>Klant</th><th>Bedrag</th><th></th><th></th><th></th></tr>
                 <?php foreach ($invoices as $inv): ?>
                     <tr>
                         <td><?= $inv['id'] ?></td>
