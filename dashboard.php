@@ -31,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $stmt = $pdo->prepare("INSERT INTO clients (name) VALUES (:name)");
             $stmt->execute(['name' => $_POST['name']]);
+            $_SESSION['success_message'] = "Klant succesvol toegevoegd!";
         }
     }
     // Projects
@@ -46,6 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $stmt = $pdo->prepare("INSERT INTO projects (name, client_id) VALUES (:name, :client_id)");
             $stmt->execute(['name' => $_POST['name'], 'client_id' => $_POST['client_id']]);
+            $_SESSION['success_message'] = "Project succesvol toegevoegd!";
         }
     }
     // Invoices
@@ -61,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $stmt = $pdo->prepare("INSERT INTO invoices (client_id, amount, date) VALUES (:client_id, :amount, CURDATE())");
             $stmt->execute(['client_id' => $_POST['client_id'], 'amount' => $_POST['amount']]);
+            $_SESSION['success_message'] = "Factuur succesvol aangemaakt!";
         }
     }
     // Hours
@@ -81,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'date' => $_POST['date'],
                 'hours' => $_POST['hours']
             ]);
+            $_SESSION['success_message'] = "Uur succesvol toegevoegd!";
         }
     }
     header("Location: ?page=$page");
@@ -92,24 +96,28 @@ if (isset($_GET['action'], $_GET['id']) && $_GET['action'] === 'delete' && is_nu
     if ($page === 'clients') {
         $stmt = $pdo->prepare("DELETE FROM clients WHERE id = ?");
         $stmt->execute([$_GET['id']]);
+        $_SESSION['success_message'] = "Klant succesvol verwijderd!";
         header("Location: ?page=clients");
         exit;
     }
     if ($page === 'projects') {
         $stmt = $pdo->prepare("DELETE FROM projects WHERE id = ?");
         $stmt->execute([$_GET['id']]);
+        $_SESSION['success_message'] = "Project succesvol verwijderd!";
         header("Location: ?page=projects");
         exit;
     }
     if ($page === 'invoices') {
         $stmt = $pdo->prepare("DELETE FROM invoices WHERE id = ?");
         $stmt->execute([$_GET['id']]);
+        $_SESSION['success_message'] = "Factuur succesvol verwijderd!";
         header("Location: ?page=invoices");
         exit;
     }
     if ($page === 'hours') {
         $stmt = $pdo->prepare("DELETE FROM hours WHERE id = ?");
         $stmt->execute([$_GET['id']]);
+        $_SESSION['success_message'] = "Uur succesvol verwijderd!";
         header("Location: ?page=hours");
         exit;
     }
@@ -154,44 +162,48 @@ foreach ($projects as $p) {
             color: #222;
         }
         .sidebar {
-            width: 240px;
-            background: var(--sidebar-bg);
+            width: 220px;
+            background: #18181b;
             color: #fff;
             height: 100vh;
             position: fixed;
-            box-shadow: 2px 0 12px #0001;
+            box-shadow: 2px 0 16px #0001;
             display: flex;
             flex-direction: column;
             border-top-right-radius: var(--border-radius);
             border-bottom-right-radius: var(--border-radius);
+            overflow: hidden;
         }
         .sidebar h2 {
             text-align: center;
             padding: 2em 0 1em 0;
-            font-size: 2em;
+            font-size: 1.5em;
             letter-spacing: 1px;
             font-weight: 700;
+            color: #fff;
+            background: none;
+            -webkit-background-clip: unset;
+            -webkit-text-fill-color: unset;
+            background-clip: unset;
         }
         .sidebar a {
-            color: #fff;
+            color: #e5e7eb;
             display: block;
             padding: 1.1em 2em;
             text-decoration: none;
             border-left: 4px solid transparent;
             font-size: 1.08em;
             position: relative;
-            overflow: hidden;
-            transition: background 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s;
-            box-shadow: none;
+            margin-bottom: 0.2em;
+            border-radius: 0 16px 16px 0;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
         }
-        .sidebar a:hover, .sidebar a:focus {
-            background: var(--primary);
+        .sidebar a.active, .sidebar a:hover, .sidebar a:focus {
+            background: #23232a;
             color: #fff;
-            border-left: 4px solid var(--primary-dark);
-            box-shadow: 0 0 16px 2px var(--primary), 0 2px 16px 0 var(--primary-dark);
-        }
-        .sidebar a::after {
-            display: none; /* Remove underline animation */
+            border-left: 4px solid #2563eb;
         }
         .main {
             margin-left: 260px;
@@ -256,10 +268,20 @@ foreach ($projects as $p) {
             font-size: 1em;
             font-weight: 600;
             box-shadow: 0 2px 8px #2563eb22;
-            transition: background 0.2s;
+            transition: background 0.2s, box-shadow 0.2s, transform 0.18s cubic-bezier(.23,1.01,.32,1);
             position: relative;
             overflow: hidden;
+            outline: none;
         }
+        button:hover, button:focus {
+            background: var(--primary-dark);
+            box-shadow: 0 6px 24px #2563eb33;
+            transform: scale(1.04) translateY(-2px);
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        /* Ripple effect on click */
         button:active::after {
             content: "";
             position: absolute;
@@ -394,6 +416,50 @@ tr:hover {
 @keyframes popupFadeOut {
     to { opacity: 0; transform: translateX(-50%) translateY(-20px);}
 }
+#confirmModal {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+#confirmModal[style*="display: flex"] {
+    display: flex !important;
+    opacity: 1;
+}
+.table-searchbar {
+    display: flex;
+    gap: 0.7em;
+    align-items: center;
+    margin-bottom: 1.5em;
+    max-width: 500px;
+}
+.table-searchbar input[type="text"] {
+    flex: 2 1 220px;
+    padding: 0.7em 1em;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 1em;
+    background: #f9fafb;
+    transition: box-shadow 0.2s, border 0.2s;
+}
+.table-searchbar input[type="text"]:focus {
+    box-shadow: 0 0 0 2px #2563eb55;
+    border-color: var(--primary);
+    outline: none;
+}
+.table-searchbar select {
+    flex: 1 1 120px;
+    padding: 0.7em 1em;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 1em;
+    background: #f9fafb;
+    transition: box-shadow 0.2s, border 0.2s;
+}
+.table-searchbar select:focus {
+    box-shadow: 0 0 0 2px #2563eb55;
+    border-color: var(--primary);
+    outline: none;
+}
     </style>
 </head>
 <body>
@@ -470,8 +536,18 @@ tr:hover {
                     <button type="submit">Factuur aanmaken</button>
                 </form>
             <?php endif; ?>
+            <div class="table-searchbar">
+    <input id="tableSearch" type="text" placeholder="Zoeken..." autocomplete="off">
+    <select id="tableFilter">
+        <option value="all">Alle</option>
+        <option value="0">Factuurnr</option>
+        <option value="1">Klant</option>
+        <option value="2">Bedrag</option>
+        <option value="3">Datum</option>
+    </select>
+</div>
             <table>
-                <tr><th>Factuurnr</th><th>Klant</th><th>Bedrag</th><th></th><th></th><th></th></tr>
+                <tr><th>Factuurnr</th><th>Klant</th><th>Bedrag</th><th>Datum</th><th></th><th></th></tr>
                 <?php foreach ($invoices as $inv): ?>
                     <tr>
                         <td><?= $inv['id'] ?></td>
@@ -480,9 +556,7 @@ tr:hover {
                         <td><?= h($inv['date']) ?></td>
                         <td><a href="?page=invoices&action=edit&id=<?= $inv['id'] ?>">Bewerken</a></td>
                         <td>
-                            <a href="?page=invoices&action=delete&id=<?= $inv['id'] ?>"
-                               onclick="return confirm('Weet je zeker dat je deze factuur wilt verwijderen?');"
-                               style="color:red;">Verwijderen</a>
+                            <a href="#" class="delete-link" data-href="?page=invoices&action=delete&id=<?= $inv['id'] ?>" style="color:red;">Verwijderen</a>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -534,18 +608,25 @@ tr:hover {
                     <button type="submit">Toevoegen</button>
                 </form>
             <?php endif; ?>
+            <div class="table-searchbar">
+    <input id="tableSearch" type="text" placeholder="Zoeken..." autocomplete="off">
+    <select id="tableFilter">
+        <option value="all">Alle</option>
+        <option value="0">Project</option>
+        <option value="1">Datum</option>
+        <option value="2">Uren</option>
+    </select>
+</div>
             <table>
                 <tr><th>Project</th><th>Datum</th><th>Uren</th><th></th><th></th></tr>
                 <?php foreach ($hours as $h): ?>
                     <tr>
-                        <td><?= h($projects[$h['project_id']-1]['name']) ?></td>
+                        <td><?= h($projectsById[$h['project_id']]['name'] ?? 'Onbekend') ?></td>
                         <td><?= h($h['date']) ?></td>
                         <td><?= h($h['hours']) ?></td>
                         <td><a href="?page=hours&action=edit&id=<?= $h['id'] ?>">Bewerken</a></td>
                         <td>
-                            <a href="?page=hours&action=delete&id=<?= $h['id'] ?>"
-                               onclick="return confirm('Weet je zeker dat je deze urenregel wilt verwijderen?');"
-                               style="color:red;">Verwijderen</a>
+                            <a href="#" class="delete-link" data-href="?page=hours&action=delete&id=<?= $h['id'] ?>" style="color:red;">Verwijderen</a>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -575,16 +656,21 @@ tr:hover {
                     <button type="submit">Toevoegen</button>
                 </form>
             <?php endif; ?>
+            <div class="table-searchbar">
+    <input id="tableSearch" type="text" placeholder="Zoeken..." autocomplete="off">
+    <select id="tableFilter">
+        <option value="all">Alle</option>
+        <option value="0">Naam</option>
+    </select>
+</div>
             <table>
                 <tr><th>Naam</th><th></th><th></th></tr>
                 <?php foreach ($clients as $c): ?>
                     <tr>
                         <td><?= h($c['name']) ?></td>
                         <td><a href="?page=clients&action=edit&id=<?= $c['id'] ?>">Bewerken</a></td>
-                        <td>
-                            <a href="?page=clients&action=delete&id=<?= $c['id'] ?>"
-                               onclick="return confirm('Weet je zeker dat je deze klant wilt verwijderen?');"
-                               style="color:red;">Verwijderen</a>
+                        <td>  
+                        <a href="#" class="delete-link" data-href="?page=clients&action=delete&id=<?= $c['id'] ?>" style="color:red;">Verwijderen</a>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -630,6 +716,14 @@ tr:hover {
                     <button type="submit">Toevoegen</button>
                 </form>
             <?php endif; ?>
+            <div class="table-searchbar">
+    <input id="tableSearch" type="text" placeholder="Zoeken..." autocomplete="off">
+    <select id="tableFilter">
+        <option value="all">Alle</option>
+        <option value="0">Project</option>
+        <option value="1">Klant</option>
+    </select>
+</div>
             <table>
                 <tr><th>Project</th><th>Klant</th><th></th><th></th></tr>
                 <?php foreach ($projects as $p): ?>
@@ -638,9 +732,7 @@ tr:hover {
                         <td><?= h($clientsById[$p['client_id']]['name'] ?? 'Onbekend') ?></td>
                         <td><a href="?page=projects&action=edit&id=<?= $p['id'] ?>">Bewerken</a></td>
                         <td>
-                            <a href="?page=projects&action=delete&id=<?= $p['id'] ?>"
-                               onclick="return confirm('Weet je zeker dat je dit project wilt verwijderen?');"
-                               style="color:red;">Verwijderen</a>
+                            <a href="#" class="delete-link" data-href="?page=projects&action=delete&id=<?= $p['id'] ?>" style="color:red;">Verwijderen</a>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -652,5 +744,54 @@ tr:hover {
             </small>
         </div>
     </div>
+<!-- Interactive Confirm Modal -->
+<div id="confirmModal" style="display:none;position:fixed;z-index:99999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.25);align-items:center;justify-content:center;">
+  <div style="background:#fff;padding:2em 2em 1.5em 2em;border-radius:12px;box-shadow:0 8px 32px #0002;max-width:90vw;min-width:260px;text-align:center;">
+    <div style="font-size:1.1em;margin-bottom:1.5em;">Weet je zeker dat je dit wilt verwijderen?</div>
+    <button id="confirmYes" style="background:#22c55e;color:#fff;padding:0.7em 2em;border:none;border-radius:6px;font-weight:600;cursor:pointer;margin-right:1em;">Ja, verwijderen</button>
+    <button id="confirmNo" style="background:#e5e7eb;color:#222;padding:0.7em 2em;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Annuleren</button>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.delete-link').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var modal = document.getElementById('confirmModal');
+        modal.style.display = 'flex';
+        modal.dataset.href = this.dataset.href;
+    });
+});
+document.getElementById('confirmYes').onclick = function() {
+    var modal = document.getElementById('confirmModal');
+    window.location.href = modal.dataset.href;
+};
+document.getElementById('confirmNo').onclick = function() {
+    document.getElementById('confirmModal').style.display = 'none';
+};
+document.getElementById('tableSearch').addEventListener('input', filterTable);
+document.getElementById('tableFilter').addEventListener('change', filterTable);
+
+function filterTable() {
+    var filter = document.getElementById('tableSearch').value.toLowerCase();
+    var filterCol = document.getElementById('tableFilter').value;
+    var table = document.querySelector('.main table');
+    if (!table) return;
+    var rows = table.querySelectorAll('tbody tr, tr');
+    rows.forEach(function(row) {
+        if (row.querySelectorAll('th').length) return; // skip header
+        var show = false;
+        if (filterCol === 'all') {
+            show = row.textContent.toLowerCase().indexOf(filter) > -1;
+        } else {
+            var cells = row.querySelectorAll('td');
+            var colIdx = parseInt(filterCol, 10);
+            if (cells[colIdx]) {
+                show = cells[colIdx].textContent.toLowerCase().indexOf(filter) > -1;
+            }
+        }
+        row.style.display = show ? '' : 'none';
+    });
+}
+</script>
 </body>
 </html>
