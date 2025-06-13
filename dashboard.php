@@ -545,7 +545,12 @@ tr:hover {
             </div>
 
             <div class="card" style="margin-top:2em;">
-        <h3>Projecten overzicht</h3>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+            <h3 style="margin:0;">Projecten overzicht</h3>
+            <span style="font-size:1.1em;color:#2563eb;font-weight:600;">
+                <?= count($projects) ?> projecten
+            </span>
+        </div>
         <table>
             <tr>
                 <th>Project</th>
