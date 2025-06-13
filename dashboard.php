@@ -52,17 +52,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     // Invoices
     if ($page === 'invoices' && !empty($_POST['client_id']) && !empty($_POST['amount'])) {
+        $paid = isset($_POST['paid']) ? 1 : 0;
         if (!empty($_POST['edit_id'])) {
-            $stmt = $pdo->prepare("UPDATE invoices SET client_id = :client_id, amount = :amount WHERE id = :id");
+            $stmt = $pdo->prepare("UPDATE invoices SET client_id = :client_id, project_id = :project_id, amount = :amount, paid = :paid WHERE id = :id");
             $stmt->execute([
                 'client_id' => $_POST['client_id'],
+                'project_id' => $_POST['project_id'],
                 'amount' => $_POST['amount'],
+                'paid' => $paid,
                 'id' => $_POST['edit_id']
             ]);
             $_SESSION['success_message'] = "Factuur succesvol bijgewerkt!";
         } else {
-            $stmt = $pdo->prepare("INSERT INTO invoices (client_id, amount, date) VALUES (:client_id, :amount, CURDATE())");
-            $stmt->execute(['client_id' => $_POST['client_id'], 'amount' => $_POST['amount']]);
+            $stmt = $pdo->prepare("INSERT INTO invoices (client_id, project_id, amount, date, paid) VALUES (:client_id, :project_id, :amount, CURDATE(), :paid)");
+            $stmt->execute([
+                'client_id' => $_POST['client_id'],
+                'project_id' => $_POST['project_id'],
+                'amount' => $_POST['amount'],
+                'paid' => $paid
+            ]);
             $_SESSION['success_message'] = "Factuur succesvol aangemaakt!";
         }
     }
@@ -460,6 +468,46 @@ tr:hover {
     border-color: var(--primary);
     outline: none;
 }
+.checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    margin-top: 1.2em;
+    font-weight: 500;
+}
+.checkbox-inline input[type="checkbox"] {
+    width: 1.1em;
+    height: 1.1em;
+    accent-color: var(--primary);
+    margin: 0;
+}
+.advanced-filters {
+    background: var(--card-bg);
+    padding: 1.5em 2em;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 2em;
+}
+.advanced-filters label {
+    margin-bottom: 0.5em;
+    font-weight: 500;
+    color: #333;
+}
+.advanced-filters input,
+.advanced-filters select {
+    padding: 0.8em 1.2em;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 1em;
+    background: #f9fafb;
+    transition: border 0.2s, box-shadow 0.2s;
+}
+.advanced-filters input:focus,
+.advanced-filters select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px #2563eb55;
+    outline: none;
+}
     </style>
 </head>
 <body>
@@ -495,6 +543,55 @@ tr:hover {
                     <a href="?page=clients">Bekijk klanten</a>
                 </div>
             </div>
+
+            <div class="card" style="margin-top:2em;">
+        <h3>Projecten overzicht</h3>
+        <table>
+            <tr>
+                <th>Project</th>
+                <th>Klant</th>
+                <th>Uren</th>
+                <th>Bedrag</th>
+                <th>Status</th>
+            </tr>
+            <?php foreach ($projects as $p): 
+                // Bereken totaal uren voor dit project
+                $projectHours = 0;
+                foreach ($hours as $h) {
+                    if ($h['project_id'] == $p['id']) $projectHours += $h['hours'];
+                }
+                // Bereken totaal bedrag en status voor dit project
+                $projectInvoices = array_filter($invoices, function($inv) use ($p) {
+                    return isset($inv['project_id']) && $inv['project_id'] == $p['id'];
+                });
+                $totalAmount = 0;
+                $allPaid = true;
+                foreach ($projectInvoices as $inv) {
+                    $totalAmount += $inv['amount'];
+                    if (empty($inv['paid'])) $allPaid = false;
+                }
+            ?>
+            <tr>
+                <td><?= h($p['name']) ?></td>
+                <td><?= h($clientsById[$p['client_id']]['name'] ?? 'Onbekend') ?></td>
+                <td><?= $projectHours ?></td>
+                <td>€<?= number_format($totalAmount, 2, ',', '.') ?></td>
+                <td>
+                    <?php if ($projectInvoices): ?>
+                        <?php if ($allPaid): ?>
+                            <span style="color:#22c55e;font-weight:600;">Betaald</span>
+                        <?php else: ?>
+                            <span style="color:#ef4444;font-weight:600;">Open</span>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <span style="color:#888;">Geen facturen</span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+        <a href="?page=projects" style="display:inline-block;margin-top:1em;">Bekijk alle projecten</a>
+    </div>
         <?php elseif ($page === 'invoices'): ?>
             <h1>Facturen</h1>
             <?php if (isset($_GET['action'], $_GET['id']) && $_GET['action'] === 'edit' && is_numeric($_GET['id'])):
@@ -514,9 +611,23 @@ tr:hover {
                             <?php endforeach; ?>
                         </select>
                     </label>
+                    <label>Project
+    <select name="project_id" required>
+        <option value="">-- Kies project --</option>
+        <?php foreach ($projects as $proj): ?>
+            <option value="<?= $proj['id'] ?>" <?= (!empty($invoice['project_id']) && $invoice['project_id'] == $proj['id']) ? 'selected' : '' ?>>
+                <?= h($proj['name']) ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+</label>
                     <label>Bedrag (€)
                         <input type="number" name="amount" step="0.01" value="<?= h($invoice['amount']) ?>" required>
                     </label>
+                    <label class="checkbox-inline">
+    <input type="checkbox" name="paid" value="1" <?= !empty($invoice['paid']) ? 'checked' : '' ?>>
+    <span>Factuur is betaald</span>
+</label>
                     <button type="submit">Opslaan</button>
                     <a href="?page=invoices" style="margin-left:1em;">Annuleren</a>
                 </form>
@@ -530,30 +641,72 @@ tr:hover {
                             <?php endforeach; ?>
                         </select>
                     </label>
+                    <label>Project
+    <select name="project_id" required>
+        <option value="">-- Kies project --</option>
+        <?php foreach ($projects as $proj): ?>
+            <option value="<?= $proj['id'] ?>">
+                <?= h($proj['name']) ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+</label>
                     <label>Bedrag (€)
                         <input type="number" name="amount" step="0.01" required>
                     </label>
                     <button type="submit">Factuur aanmaken</button>
                 </form>
             <?php endif; ?>
-            <div class="table-searchbar">
-    <input id="tableSearch" type="text" placeholder="Zoeken..." autocomplete="off">
-    <select id="tableFilter">
-        <option value="all">Alle</option>
-        <option value="0">Factuurnr</option>
-        <option value="1">Klant</option>
-        <option value="2">Bedrag</option>
-        <option value="3">Datum</option>
-    </select>
-</div>
+
+            <div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
+        <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
+            <div style="display:flex; flex-direction:column; min-width:160px;">
+                <label for="advSearch" style="margin-bottom:0.2em; color:#555;">Zoeken</label>
+                <input id="advSearch" type="text" placeholder="Zoekterm..." autocomplete="off">
+            </div>
+            <div style="display:flex; flex-direction:column; min-width:120px;">
+                <label for="advCol" style="margin-bottom:0.2em; color:#555;">Kolom</label>
+                <select id="advCol">
+                    <option value="all">Alle</option>
+                    <option value="0">Factuurnr</option>
+                    <option value="1">Klant</option>
+                    <option value="2">Bedrag</option>
+                </select>
+            </div>
+            <div style="display:flex; flex-direction:column; min-width:120px;">
+                <label for="advStatus" style="margin-bottom:0.2em; color:#555;">Status</label>
+                <select id="advStatus">
+                    <option value="">Alle</option>
+                    <option value="unpaid">Open</option>
+                    <option value="paid">Betaald</option>
+                </select>
+            </div>
+            <div style="display:flex; flex-direction:column; min-width:120px;">
+                <label for="advDateFrom" style="margin-bottom:0.2em; color:#555;">Datum vanaf</label>
+                <input id="advDateFrom" type="date">
+            </div>
+            <div style="display:flex; flex-direction:column; min-width:120px;">
+                <label for="advDateTo" style="margin-bottom:0.2em; color:#555;">Datum t/m</label>
+                <input id="advDateTo" type="date">
+            </div>
+        </div>
+    </div>
+
             <table>
-                <tr><th>Factuurnr</th><th>Klant</th><th>Bedrag</th><th>Datum</th><th></th><th></th></tr>
+                <tr><th>Factuurnr</th><th>Klant</th><th>Bedrag</th><th>Datum</th><th>Status</th><th></th><th></th></tr>
                 <?php foreach ($invoices as $inv): ?>
                     <tr>
                         <td><?= $inv['id'] ?></td>
                         <td><?= h($clientsById[$inv['client_id']]['name'] ?? 'Onbekend') ?></td>
                         <td>€<?= number_format($inv['amount'],2,',','.') ?></td>
                         <td><?= h($inv['date']) ?></td>
+                        <td>
+                            <?php if (!empty($inv['paid'])): ?>
+                                <span style="color:#22c55e;font-weight:600;">Betaald</span>
+                            <?php else: ?>
+                                <span style="color:#ef4444;font-weight:600;">Open</span>
+                            <?php endif; ?>
+                        </td>
                         <td><a href="?page=invoices&action=edit&id=<?= $inv['id'] ?>">Bewerken</a></td>
                         <td>
                             <a href="#" class="delete-link" data-href="?page=invoices&action=delete&id=<?= $inv['id'] ?>" style="color:red;">Verwijderen</a>
@@ -608,15 +761,30 @@ tr:hover {
                     <button type="submit">Toevoegen</button>
                 </form>
             <?php endif; ?>
-            <div class="table-searchbar">
-    <input id="tableSearch" type="text" placeholder="Zoeken..." autocomplete="off">
-    <select id="tableFilter">
-        <option value="all">Alle</option>
-        <option value="0">Project</option>
-        <option value="1">Datum</option>
-        <option value="2">Uren</option>
-    </select>
-</div>
+            <div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
+        <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
+            <div style="display:flex; flex-direction:column; min-width:160px;">
+                <label for="advSearch" style="margin-bottom:0.2em; color:#555;">Zoeken</label>
+                <input id="advSearch" type="text" placeholder="Zoekterm..." autocomplete="off">
+            </div>
+            <div style="display:flex; flex-direction:column; min-width:120px;">
+                <label for="advCol" style="margin-bottom:0.2em; color:#555;">Kolom</label>
+                <select id="advCol">
+                    <option value="all">Alle</option>
+                    <option value="0">Project</option>
+                    <option value="2">Uren</option>
+                </select>
+            </div>
+            <div style="display:flex; flex-direction:column; min-width:120px;">
+                <label for="advDateFrom" style="margin-bottom:0.2em; color:#555;">Datum vanaf</label>
+                <input id="advDateFrom" type="date">
+            </div>
+            <div style="display:flex; flex-direction:column; min-width:120px;">
+                <label for="advDateTo" style="margin-bottom:0.2em; color:#555;">Datum t/m</label>
+                <input id="advDateTo" type="date">
+            </div>
+        </div>
+    </div>
             <table>
                 <tr><th>Project</th><th>Datum</th><th>Uren</th><th></th><th></th></tr>
                 <?php foreach ($hours as $h): ?>
@@ -656,13 +824,21 @@ tr:hover {
                     <button type="submit">Toevoegen</button>
                 </form>
             <?php endif; ?>
-            <div class="table-searchbar">
-    <input id="tableSearch" type="text" placeholder="Zoeken..." autocomplete="off">
-    <select id="tableFilter">
-        <option value="all">Alle</option>
-        <option value="0">Naam</option>
-    </select>
-</div>
+            <div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
+        <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
+            <div style="display:flex; flex-direction:column; min-width:160px;">
+                <label for="advSearch" style="margin-bottom:0.2em; color:#555;">Zoeken</label>
+                <input id="advSearch" type="text" placeholder="Zoekterm..." autocomplete="off">
+            </div>
+            <div style="display:flex; flex-direction:column; min-width:120px;">
+                <label for="advCol" style="margin-bottom:0.2em; color:#555;">Kolom</label>
+                <select id="advCol">
+                    <option value="all">Alle</option>
+                    <option value="0">Naam</option>
+                </select>
+            </div>
+        </div>
+    </div>
             <table>
                 <tr><th>Naam</th><th></th><th></th></tr>
                 <?php foreach ($clients as $c): ?>
@@ -716,14 +892,22 @@ tr:hover {
                     <button type="submit">Toevoegen</button>
                 </form>
             <?php endif; ?>
-            <div class="table-searchbar">
-    <input id="tableSearch" type="text" placeholder="Zoeken..." autocomplete="off">
-    <select id="tableFilter">
-        <option value="all">Alle</option>
-        <option value="0">Project</option>
-        <option value="1">Klant</option>
-    </select>
-</div>
+            <div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
+        <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
+            <div style="display:flex; flex-direction:column; min-width:160px;">
+                <label for="advSearch" style="margin-bottom:0.2em; color:#555;">Zoeken</label>
+                <input id="advSearch" type="text" placeholder="Zoekterm..." autocomplete="off">
+            </div>
+            <div style="display:flex; flex-direction:column; min-width:120px;">
+                <label for="advCol" style="margin-bottom:0.2em; color:#555;">Kolom</label>
+                <select id="advCol">
+                    <option value="all">Alle</option>
+                    <option value="0">Project</option>
+                    <option value="1">Klant</option>
+                </select>
+            </div>
+        </div>
+    </div>
             <table>
                 <tr><th>Project</th><th>Klant</th><th></th><th></th></tr>
                 <?php foreach ($projects as $p): ?>
@@ -768,26 +952,68 @@ document.getElementById('confirmYes').onclick = function() {
 document.getElementById('confirmNo').onclick = function() {
     document.getElementById('confirmModal').style.display = 'none';
 };
-document.getElementById('tableSearch').addEventListener('input', filterTable);
-document.getElementById('tableFilter').addEventListener('change', filterTable);
+// Remove these if you don't use the old filter bar anymore:
+// document.getElementById('tableSearch').addEventListener('input', filterTable);
+// document.getElementById('tableFilter').addEventListener('change', filterTable);
+// document.getElementById('statusFilter').addEventListener('change', filterTable);
+
+// Only add listeners if the element exists
+if (document.getElementById('advSearch')) {
+    document.getElementById('advSearch').addEventListener('input', filterTable);
+}
+if (document.getElementById('advCol')) {
+    document.getElementById('advCol').addEventListener('change', filterTable);
+}
+if (document.getElementById('advStatus')) {
+    document.getElementById('advStatus').addEventListener('change', filterTable);
+}
+if (document.getElementById('advDateFrom')) {
+    document.getElementById('advDateFrom').addEventListener('change', filterTable);
+}
+if (document.getElementById('advDateTo')) {
+    document.getElementById('advDateTo').addEventListener('change', filterTable);
+}
 
 function filterTable() {
-    var filter = document.getElementById('tableSearch').value.toLowerCase();
-    var filterCol = document.getElementById('tableFilter').value;
+    var search = document.getElementById('advSearch').value.toLowerCase();
+    var advCol = document.getElementById('advCol').value;
+    var status = document.getElementById('advStatus') ? document.getElementById('advStatus').value : '';
+    var dateFrom = document.getElementById('advDateFrom').value;
+    var dateTo = document.getElementById('advDateTo').value;
     var table = document.querySelector('.main table');
     if (!table) return;
     var rows = table.querySelectorAll('tbody tr, tr');
     rows.forEach(function(row) {
         if (row.querySelectorAll('th').length) return; // skip header
-        var show = false;
-        if (filterCol === 'all') {
-            show = row.textContent.toLowerCase().indexOf(filter) > -1;
-        } else {
-            var cells = row.querySelectorAll('td');
-            var colIdx = parseInt(filterCol, 10);
-            if (cells[colIdx]) {
-                show = cells[colIdx].textContent.toLowerCase().indexOf(filter) > -1;
+        var cells = row.querySelectorAll('td');
+        var show = true;
+
+        // Search filter with column selection
+        if (search) {
+            if (advCol === 'all') {
+                if (row.textContent.toLowerCase().indexOf(search) === -1) show = false;
+            } else {
+                var colIdx = parseInt(advCol, 10);
+                if (!cells[colIdx] || cells[colIdx].textContent.toLowerCase().indexOf(search) === -1) show = false;
             }
+        }
+        // Status filter (only for invoices)
+        if (document.getElementById('advStatus') && status) {
+            var statusText = cells[4] ? cells[4].textContent.toLowerCase() : '';
+            if (status === 'paid' && statusText.indexOf('betaald') === -1) show = false;
+            if (status === 'unpaid' && statusText.indexOf('open') === -1) show = false;
+        }
+        // Date filters (try to match date column)
+        // For invoices: date is col 3, for hours: col 1, for projects/clients: skip
+        var dateCol = 3;
+        if (<?php echo json_encode($page); ?> === 'hours') dateCol = 1;
+        if (dateFrom && cells[dateCol]) {
+            var rowDate = cells[dateCol].textContent.trim();
+            if (rowDate && rowDate < dateFrom) show = false;
+        }
+        if (dateTo && cells[dateCol]) {
+            var rowDate = cells[dateCol].textContent.trim();
+            if (rowDate && rowDate > dateTo) show = false;
         }
         row.style.display = show ? '' : 'none';
     });
