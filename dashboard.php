@@ -529,7 +529,10 @@ tr:hover {
             <div class="flex">
                 <div class="card">
                     <h3>Facturen</h3>
-                    <p><strong><?= count($invoices) ?></strong> openstaande facturen</p>
+                    <p>
+                        <strong><?= count(array_filter($invoices, fn($inv) => empty($inv['paid']))) ?></strong> openstaande facturen<br>
+                        <strong><?= count(array_filter($invoices, fn($inv) => !empty($inv['paid']))) ?></strong> betaalde facturen
+                    </p>
                     <a href="?page=invoices">Bekijk facturen</a>
                 </div>
                 <div class="card">
@@ -556,42 +559,25 @@ tr:hover {
                 <th>Project</th>
                 <th>Klant</th>
                 <th>Uren</th>
-                <th>Bedrag</th>
-                <th>Status</th>
+                <th>Datum</th>
             </tr>
             <?php foreach ($projects as $p): 
-                // Bereken totaal uren voor dit project
+                // Totaal uren en eerste datum voor dit project
                 $projectHours = 0;
+                $dates = [];
                 foreach ($hours as $h) {
-                    if ($h['project_id'] == $p['id']) $projectHours += $h['hours'];
+                    if ($h['project_id'] == $p['id']) {
+                        $projectHours += $h['hours'];
+                        if (!empty($h['date'])) $dates[] = $h['date'];
+                    }
                 }
-                // Bereken totaal bedrag en status voor dit project
-                $projectInvoices = array_filter($invoices, function($inv) use ($p) {
-                    return isset($inv['project_id']) && $inv['project_id'] == $p['id'];
-                });
-                $totalAmount = 0;
-                $allPaid = true;
-                foreach ($projectInvoices as $inv) {
-                    $totalAmount += $inv['amount'];
-                    if (empty($inv['paid'])) $allPaid = false;
-                }
+                $firstDate = $dates ? min($dates) : null;
             ?>
             <tr>
                 <td><?= h($p['name']) ?></td>
                 <td><?= h($clientsById[$p['client_id']]['name'] ?? 'Onbekend') ?></td>
                 <td><?= $projectHours ?></td>
-                <td>€<?= number_format($totalAmount, 2, ',', '.') ?></td>
-                <td>
-                    <?php if ($projectInvoices): ?>
-                        <?php if ($allPaid): ?>
-                            <span style="color:#22c55e;font-weight:600;">Betaald</span>
-                        <?php else: ?>
-                            <span style="color:#ef4444;font-weight:600;">Open</span>
-                        <?php endif; ?>
-                    <?php else: ?>
-                        <span style="color:#888;">Geen facturen</span>
-                    <?php endif; ?>
-                </td>
+                <td><?= $firstDate ? date('d-m-Y', strtotime($firstDate)) : '-' ?></td>
             </tr>
             <?php endforeach; ?>
         </table>
@@ -608,22 +594,18 @@ tr:hover {
                     <h3>Factuur bewerken</h3>
                     <input type="hidden" name="edit_id" value="<?= $invoice['id'] ?>">
                     <label>Klant
-                        <select name="client_id">
-                            <?php foreach ($clients as $c): ?>
-                                <option value="<?= $c['id'] ?>" <?= $c['id'] == $invoice['client_id'] ? 'selected' : '' ?>>
-                                    <?= h($c['name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+<select name="client_id" id="clientSelect" required>
+    <?php foreach ($clients as $c): ?>
+        <option value="<?= $c['id'] ?>" <?= (!empty($invoice['client_id']) && $invoice['client_id'] == $c['id']) ? 'selected' : '' ?>>
+            <?= h($c['name']) ?>
+        </option>
+    <?php endforeach; ?>
+</select>
                     </label>
                     <label>Project
-    <select name="project_id" required>
+    <select name="project_id" id="projectSelect" required>
         <option value="">-- Kies project --</option>
-        <?php foreach ($projects as $proj): ?>
-            <option value="<?= $proj['id'] ?>" <?= (!empty($invoice['project_id']) && $invoice['project_id'] == $proj['id']) ? 'selected' : '' ?>>
-                <?= h($proj['name']) ?>
-            </option>
-        <?php endforeach; ?>
+        <!-- Options will be filled by JS -->
     </select>
 </label>
                     <label>Bedrag (€)
@@ -640,20 +622,18 @@ tr:hover {
                 <form class="card" method="post" action="">
                     <h3>Nieuwe factuur</h3>
                     <label>Klant
-                        <select name="client_id">
-                            <?php foreach ($clients as $c): ?>
-                                <option value="<?= $c['id'] ?>"><?= h($c['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+<select name="client_id" id="clientSelect" required>
+    <?php foreach ($clients as $c): ?>
+        <option value="<?= $c['id'] ?>" <?= (!empty($invoice['client_id']) && $invoice['client_id'] == $c['id']) ? 'selected' : '' ?>>
+            <?= h($c['name']) ?>
+        </option>
+    <?php endforeach; ?>
+</select>
                     </label>
                     <label>Project
-    <select name="project_id" required>
+    <select name="project_id" id="projectSelect" required>
         <option value="">-- Kies project --</option>
-        <?php foreach ($projects as $proj): ?>
-            <option value="<?= $proj['id'] ?>">
-                <?= h($proj['name']) ?>
-            </option>
-        <?php endforeach; ?>
+        <!-- Options will be filled by JS -->
     </select>
 </label>
                     <label>Bedrag (€)
@@ -698,26 +678,33 @@ tr:hover {
     </div>
 
             <table>
-                <tr><th>Factuurnr</th><th>Klant</th><th>Bedrag</th><th>Datum</th><th>Status</th><th></th><th></th></tr>
+                <tr><th>Factuurnr</th><th>Klant</th><th>Project</th><th>Bedrag</th><th>Datum</th><th>Status</th><th></th><th></th></tr>
                 <?php foreach ($invoices as $inv): ?>
-                    <tr>
-                        <td><?= $inv['id'] ?></td>
-                        <td><?= h($clientsById[$inv['client_id']]['name'] ?? 'Onbekend') ?></td>
-                        <td>€<?= number_format($inv['amount'],2,',','.') ?></td>
-                        <td><?= h($inv['date']) ?></td>
-                        <td>
-                            <?php if (!empty($inv['paid'])): ?>
-                                <span style="color:#22c55e;font-weight:600;">Betaald</span>
-                            <?php else: ?>
-                                <span style="color:#ef4444;font-weight:600;">Open</span>
-                            <?php endif; ?>
-                        </td>
-                        <td><a href="?page=invoices&action=edit&id=<?= $inv['id'] ?>">Bewerken</a></td>
-                        <td>
-                            <a href="#" class="delete-link" data-href="?page=invoices&action=delete&id=<?= $inv['id'] ?>" style="color:red;">Verwijderen</a>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
+<tr>
+    <td><?= h($inv['id']) ?></td>
+    <td><?= h($clientsById[$inv['client_id']]['name'] ?? 'Onbekend') ?></td>
+    <td>
+        <?php
+            if (!empty($inv['project_id']) && isset($projectsById[$inv['project_id']])) {
+                echo h($projectsById[$inv['project_id']]['name']);
+            } else {
+                echo '-';
+            }
+        ?>
+    </td>
+    <td>€<?= number_format($inv['amount'], 2, ',', '.') ?></td>
+    <td><?= h($inv['date']) ?></td>
+    <td>
+        <?php if (!empty($inv['paid'])): ?>
+            <span style="color:#22c55e;font-weight:600;">Betaald</span>
+        <?php else: ?>
+            <span style="color:#ef4444;font-weight:600;">Open</span>
+        <?php endif; ?>
+    </td>
+    <td><a href="?page=invoices&action=edit&id=<?= $inv['id'] ?>" style="color:blue;">Bewerken</a></td>
+    <td><a href="#" class="delete-link" data-href="?page=invoices&action=delete&id=<?= $inv['id'] ?>" style="color:red;">Verwijderen</a></td>
+</tr>
+<?php endforeach; ?>
             </table>
         <?php elseif ($page === 'hours'): ?>
             <h1>Urenregistratie</h1>
@@ -936,9 +923,27 @@ tr:hover {
 <!-- Interactive Confirm Modal -->
 <div id="confirmModal" style="display:none;position:fixed;z-index:99999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.25);align-items:center;justify-content:center;">
   <div style="background:#fff;padding:2em 2em 1.5em 2em;border-radius:12px;box-shadow:0 8px 32px #0002;max-width:90vw;min-width:260px;text-align:center;">
+    <!-- Bigger Danger icon -->
+    <div style="margin-bottom:1em;">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+        <circle cx="36" cy="36" r="34" fill="#fff" stroke="#ef4444" stroke-width="4"/>
+        <path d="M36 20v22" stroke="#ef4444" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="36" cy="52" r="4" fill="#ef4444"/>
+      </svg>
+    </div>
     <div style="font-size:1.1em;margin-bottom:1.5em;">Weet je zeker dat je dit wilt verwijderen?</div>
-    <button id="confirmYes" style="background:#22c55e;color:#fff;padding:0.7em 2em;border:none;border-radius:6px;font-weight:600;cursor:pointer;margin-right:1em;">Ja, verwijderen</button>
+    <div style="color:#ef4444;font-size:0.98em;margin-bottom:1.5em;">
+      <strong>Let op:</strong> Dit kan <u>niet</u> ongedaan worden gemaakt.
+    </div>
+    <button id="confirmYes" style="background:#ef4444;color:#fff;padding:0.7em 2em;border:none;border-radius:6px;font-weight:600;cursor:pointer;margin-right:1em;">Ja, verwijderen</button>
     <button id="confirmNo" style="background:#e5e7eb;color:#222;padding:0.7em 2em;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Annuleren</button>
+  </div>
+</div>
+<div id="saveConfirmModal" style="display:none;position:fixed;z-index:99999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.25);align-items:center;justify-content:center;">
+  <div style="background:#fff;padding:2em 2em 1.5em 2em;border-radius:12px;box-shadow:0 8px 32px #0002;max-width:90vw;min-width:260px;text-align:center;">
+    <div style="font-size:1.1em;margin-bottom:1.5em;">Weet je zeker dat je deze wijziging wilt opslaan?</div>
+    <button id="saveConfirmYes" style="background:#2563eb;color:#fff;padding:0.7em 2em;border:none;border-radius:6px;font-weight:600;cursor:pointer;margin-right:1em;">Ja, opslaan</button>
+    <button id="saveConfirmNo" style="background:#e5e7eb;color:#222;padding:0.7em 2em;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Annuleren</button>
   </div>
 </div>
 <script>
@@ -953,6 +958,9 @@ document.querySelectorAll('.delete-link').forEach(function(link) {
 document.getElementById('confirmYes').onclick = function() {
     var modal = document.getElementById('confirmModal');
     window.location.href = modal.dataset.href;
+};
+document.getElementById('confirmNo').onclick = function() {
+    document.getElementById('confirmModal').style.display = 'none';
 };
 document.getElementById('confirmNo').onclick = function() {
     document.getElementById('confirmModal').style.display = 'none';
@@ -1023,6 +1031,58 @@ function filterTable() {
         row.style.display = show ? '' : 'none';
     });
 }
+</script>
+<script>
+    var allProjects = <?= json_encode($projects) ?>;
+    var selectedProjectId = <?= isset($invoice['project_id']) ? json_encode($invoice['project_id']) : 'null' ?>;
+
+
+function updateProjectOptions() {
+    var clientId = document.getElementById('clientSelect').value;
+    var projectSelect = document.getElementById('projectSelect');
+    var current = selectedProjectId;
+    projectSelect.innerHTML = '<option value="">-- Kies project --</option>';
+    allProjects.forEach(function(proj) {
+        if (String(proj.client_id) === String(clientId)) {
+            var opt = document.createElement('option');
+            opt.value = proj.id;
+            opt.textContent = proj.name;
+            if (current && proj.id == current) {
+                opt.selected = true;
+            }
+            projectSelect.appendChild(opt);
+        }
+    });
+}
+
+if (document.getElementById('clientSelect') && document.getElementById('projectSelect')) {
+    document.getElementById('clientSelect').addEventListener('change', function() {
+        selectedProjectId = null;
+        updateProjectOptions();
+    });
+    updateProjectOptions();
+}
+</script>
+<script>
+document.querySelectorAll('form.card').forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+        // Only show confirmation if this is an edit form (has edit_id)
+        if (form.querySelector('input[name="edit_id"]')) {
+            e.preventDefault();
+            var modal = document.getElementById('saveConfirmModal');
+            modal.style.display = 'flex';
+
+            document.getElementById('saveConfirmYes').onclick = function() {
+                modal.style.display = 'none';
+                form.submit();
+            };
+            document.getElementById('saveConfirmNo').onclick = function() {
+                modal.style.display = 'none';
+            };
+        }
+        // If not editing, allow normal submit (no modal)
+    });
+});
 </script>
 </body>
 </html>
