@@ -16,6 +16,7 @@ if (!isset($_SESSION['username'])) {
 }
 
 // Simple router
+
 $page = $_GET['page'] ?? 'dashboard';
 
 function h($str) { return htmlspecialchars($str, ENT_QUOTES, 'UTF-8'); }
@@ -37,16 +38,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Projects
     if ($page === 'projects' && !empty($_POST['name']) && !empty($_POST['client_id'])) {
         if (!empty($_POST['edit_id'])) {
-            $stmt = $pdo->prepare("UPDATE projects SET name = :name, client_id = :client_id WHERE id = :id");
+            $stmt = $pdo->prepare("UPDATE projects SET name = :name, client_id = :client_id, status = :status WHERE id = :id");
             $stmt->execute([
                 'name' => $_POST['name'],
                 'client_id' => $_POST['client_id'],
+                'status' => $_POST['status'],
                 'id' => $_POST['edit_id']
             ]);
             $_SESSION['success_message'] = "Project succesvol bijgewerkt!";
         } else {
-            $stmt = $pdo->prepare("INSERT INTO projects (name, client_id) VALUES (:name, :client_id)");
-            $stmt->execute(['name' => $_POST['name'], 'client_id' => $_POST['client_id']]);
+            $stmt = $pdo->prepare("INSERT INTO projects (name, client_id, status) VALUES (:name, :client_id, :status)");
+            $stmt->execute([
+                'name' => $_POST['name'],
+                'client_id' => $_POST['client_id'],
+                'status' => $_POST['status']
+            ]);
             $_SESSION['success_message'] = "Project succesvol toegevoegd!";
         }
     }
@@ -144,6 +150,87 @@ foreach ($clients as $c) {
 $projectsById = [];
 foreach ($projects as $p) {
     $projectsById[$p['id']] = $p;
+}
+
+// Calculate today's and this week's hours
+$today = date('Y-m-d');
+$weekStart = date('Y-m-d', strtotime('monday this week'));
+$weekEnd = date('Y-m-d', strtotime('sunday this week'));
+
+$hoursToday = 0;
+$hoursThisWeek = 0;
+foreach ($hours as $h) {
+    if ($h['date'] === $today) {
+        $hoursToday += $h['hours'];
+    }
+    if ($h['date'] >= $weekStart && $h['date'] <= $weekEnd) {
+        $hoursThisWeek += $h['hours'];
+    }
+}
+
+// --- Advanced statistics for stats page ---
+
+// Project status counts
+$ongoingProjects = array_filter($projects, fn($p) => ($p['status'] ?? 'ongoing') === 'ongoing');
+$finishedProjects = array_filter($projects, fn($p) => ($p['status'] ?? 'ongoing') === 'finished');
+
+// Invoice stats
+$totalInvoices = count($invoices);
+$paidInvoices = count(array_filter($invoices, fn($inv) => !empty($inv['paid'])));
+$unpaidInvoices = $totalInvoices - $paidInvoices;
+$totalInvoiced = array_sum(array_column($invoices, 'amount'));
+$avgInvoice = $totalInvoices ? $totalInvoiced / $totalInvoices : 0;
+$maxInvoice = $totalInvoices ? max(array_column($invoices, 'amount')) : 0;
+
+// Hours per project
+$projectHours = [];
+foreach ($projects as $p) $projectHours[$p['id']] = 0;
+foreach ($hours as $h) if (isset($projectHours[$h['project_id']])) $projectHours[$h['project_id']] += $h['hours'];
+arsort($projectHours);
+$topProjects = array_slice($projectHours, 0, 5, true);
+
+// Hours per month (last 6 months)
+$months = [];
+for ($i = 5; $i >= 0; $i--) {
+    $m = date('Y-m', strtotime("-$i months"));
+    $months[$m] = 0;
+}
+foreach ($hours as $h) {
+    $m = substr($h['date'], 0, 7);
+    if (isset($months[$m])) $months[$m] += $h['hours'];
+}
+
+// Top clients by project count
+$clientProjectCounts = [];
+foreach ($projects as $p) {
+    $cid = $p['client_id'];
+    $clientProjectCounts[$cid] = ($clientProjectCounts[$cid] ?? 0) + 1;
+}
+arsort($clientProjectCounts);
+$topClients = array_slice($clientProjectCounts, 0, 5, true);
+
+// Unpaid invoices by client
+$unpaidByClient = [];
+foreach ($invoices as $inv) {
+    if (empty($inv['paid'])) {
+        $cid = $inv['client_id'];
+        $unpaidByClient[$cid] = ($unpaidByClient[$cid] ?? 0) + $inv['amount'];
+    }
+}
+arsort($unpaidByClient);
+
+// Project completion rate
+$totalProjects = count($projects);
+$finished = count($finishedProjects);
+$completionRate = $totalProjects ? round(($finished / $totalProjects) * 100) : 0;
+
+// Recent activity (last 5 hour entries)
+$recentHours = array_slice(array_reverse($hours), 0, 5);
+
+$currentMonth = date('Y-m');
+$monthHours = 0;
+foreach ($hours as $h) {
+    if (strpos($h['date'], $currentMonth) === 0) $monthHours += $h['hours'];
 }
 ?>
 <!DOCTYPE html>
@@ -508,6 +595,185 @@ tr:hover {
     box-shadow: 0 0 0 2px #2563eb55;
     outline: none;
 }
+body.dark-mode {
+    background: #18181b !important;
+}
+
+body.dark-mode .main {
+    background: transparent !important;
+    /* No border, no shadow, keep it flat */
+}
+
+body.dark-mode .sidebar {
+    background: #15161a !important;
+    color: #fff !important;
+    border-right: 1px solid #23232a !important;
+}
+
+body.dark-mode .card {
+    background: #23232a !important;
+    color: #f3f4f6 !important;
+    border-color: #333 !important;
+}
+
+body.dark-mode table {
+    background: #23232a !important;
+    color: #f3f4f6 !important;
+}
+
+body.dark-mode th, body.dark-mode td {
+    background: #23232a !important;
+    color: #f3f4f6 !important;
+}
+
+body.dark-mode a {
+    color: #60a5fa !important;
+}
+
+body.dark-mode input, 
+body.dark-mode select, 
+body.dark-mode textarea {
+    background: #18181b !important;
+    color: #f3f4f6 !important;
+    border-color: #333 !important;
+}
+
+body.dark-mode .popup-success {
+    background: #166534 !important;
+    color: #fff !important;
+}
+body.dark-mode .advanced-filters label {
+    color: #f3f4f6 !important;
+}
+
+body.dark-mode .advanced-filters input,
+body.dark-mode .advanced-filters select {
+    color: #f3f4f6 !important;
+}
+
+/* Placeholder color for dark mode */
+body.dark-mode .advanced-filters input::placeholder {
+    color: #a1a1aa !important;
+    opacity: 1;
+}
+body.dark-mode h1 {
+    color: #f3f4f6 !important;
+}
+body.dark-mode .modal-content {
+    background: #23232a !important;
+    color: #f3f4f6 !important;
+    border-color: #333 !important;
+}
+body.dark-mode a.delete-link,
+body.dark-mode a.delete-link:visited {
+    color: #ef4444 !important;
+    font-weight: 500;
+    text-decoration: underline !important;
+}
+body.dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
+body.dark-mode canvas {
+    background: #23232a !important;
+}
+
+/* Dashboard stat cards */
+.dashboard-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 2em;
+    margin-bottom: 2em;
+}
+.stat-card-link {
+    display: block;
+    border-radius: 18px;
+    text-decoration: none;
+    height: 100%;
+    transition: box-shadow 0.25s, transform 0.18s cubic-bezier(.23,1.01,.32,1);
+}
+.stat-card {
+    min-height: 90px;
+    height: 100%;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 4px 24px #0001;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 1em 1em;
+    transition: box-shadow 0.25s, transform 0.18s cubic-bezier(.23,1.01,.32,1), background 0.25s;
+    position: relative;
+    overflow: hidden;
+    will-change: transform, box-shadow;
+}
+.stat-card-value {
+    font-size: 2.2em;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.2em;
+}
+.stat-card-label {
+    font-size: 1.1em;
+    opacity: .85;
+    margin-bottom: 0.7em;
+}
+.stat-card-badges {
+    display: flex;
+    gap: 0.5em;
+    flex-wrap: wrap;
+}
+.stat-badge {
+    border-radius: 6px;
+    padding: 2px 10px 2px 8px;
+    font-size: .98em;
+    font-weight: 600;
+    background: #f3f4f6;
+    color: #222;
+    transition: background 0.2s, color 0.2s;
+}
+.stat-badge-green {
+    background: #22c55e22;
+    color: #22c55e;
+}
+.stat-badge-red {
+    background: #ef444422;
+    color: #ef4444;
+}
+.stat-badge-dark {
+    background: #18181b22;
+    color: #18181b;
+}
+.stat-card-blue {
+    color: #2563eb;
+}
+.stat-card-green {
+    color: #22c55e;
+}
+.stat-card-dark {
+    color: #18181b;
+}
+.stat-card-white {
+    color: #222;
+}
+.stat-card-link .stat-card {
+    cursor: pointer;
+    animation: cardFadeIn 0.7s cubic-bezier(.23,1.01,.32,1);
+}
+@keyframes cardFadeIn {
+    from { opacity: 0; transform: translateY(30px) scale(0.97);}
+    to   { opacity: 1; transform: none;}
+}
+.stat-card-link:hover .stat-card,
+.stat-card-link:focus .stat-card {
+    box-shadow: 0 12px 40px #2563eb33, 0 2px 8px #22c55e22;
+    transform: translateY(-6px) scale(1.04) rotate(-0.5deg);
+    background: #f3f6ff;
+}
+.stat-card-link:active .stat-card {
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px #2563eb22;
+}
     </style>
 </head>
 <body>
@@ -522,36 +788,55 @@ tr:hover {
         <a href="?page=hours">Uren</a>
         <a href="?page=clients">Klanten</a>
         <a href="?page=projects">Projecten</a>
+        <a href="?page=stats">Statistieken</a>
     </div>
     <div class="main">
         <?php if ($page === 'dashboard'): ?>
-            <h1>Welkom terug!</h1>
-            <div class="flex">
-                <div class="card">
-                    <h3>Facturen</h3>
-                    <p>
-                        <strong><?= count(array_filter($invoices, fn($inv) => empty($inv['paid']))) ?></strong> openstaande facturen<br>
-                        <strong><?= count(array_filter($invoices, fn($inv) => !empty($inv['paid']))) ?></strong> betaalde facturen
-                    </p>
-                    <a href="?page=invoices">Bekijk facturen</a>
-                </div>
-                <div class="card">
-                    <h3>Uren</h3>
-                    <p><strong><?= array_sum(array_column($hours, 'hours')) ?></strong> uren geregistreerd</p>
-                    <a href="?page=hours">Bekijk uren</a>
-                </div>
-                <div class="card">
-                    <h3>Klanten</h3>
-                    <p><strong><?= count($clients) ?></strong> klanten</p>
-                    <a href="?page=clients">Bekijk klanten</a>
+            <h1 style="margin-bottom:1.5em;">Welkom terug!</h1>
+            <div class="stats-grid dashboard-cards">
+        <a href="?page=clients" class="stat-card-link">
+            <div class="stat-card stat-card-blue">
+                <div class="stat-card-value"><?= count($clients) ?></div>
+                <div class="stat-card-label">Klanten</div>
+            </div>
+        </a>
+        <a href="?page=projects" class="stat-card-link">
+            <div class="stat-card stat-card-green">
+                <div class="stat-card-value"><?= count($projects) ?></div>
+                <div class="stat-card-label">Projecten</div>
+                <div class="stat-card-badges">
+                    <span class="stat-badge stat-badge-green"><?= count($ongoingProjects) ?> lopend</span>
+                    <span class="stat-badge stat-badge-green"><?= count($finishedProjects) ?> afgerond</span>
                 </div>
             </div>
+        </a>
+        <a href="?page=hours" class="stat-card-link">
+            <div class="stat-card stat-card-dark">
+                <div class="stat-card-value"><?= array_sum(array_column($hours, 'hours')) ?></div>
+                <div class="stat-card-label">Uren geregistreerd</div>
+                <div class="stat-card-badges">
+                    <span class="stat-badge stat-badge-dark"><?= $hoursThisWeek ?> deze week</span>
+                    <span class="stat-badge stat-badge-dark"><?= $hoursToday ?> vandaag</span>
+                </div>
+            </div>
+        </a>
+        <a href="?page=invoices" class="stat-card-link">
+            <div class="stat-card stat-card-white">
+                <div class="stat-card-value"><?= $totalInvoices ?></div>
+                <div class="stat-card-label">Facturen</div>
+                <div class="stat-card-badges">
+                    <span class="stat-badge stat-badge-green"><?= $paidInvoices ?> betaald</span>
+                    <span class="stat-badge stat-badge-red"><?= $unpaidInvoices ?> open</span>
+                </div>
+            </div>
+        </a>
+    </div>
 
-            <div class="card" style="margin-top:2em;">
-                <div style="display:flex;align-items:center;justify-content:space-between;">
+    <div class="card" style="margin-top:2em;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
             <h3 style="margin:0;">Projecten overzicht</h3>
             <span style="font-size:1.1em;color:#2563eb;font-weight:600;">
-                <?= count($projects) ?> projecten
+                Totaal <?= count($ongoingProjects) ?>
             </span>
         </div>
         <table>
@@ -560,9 +845,9 @@ tr:hover {
                 <th>Klant</th>
                 <th>Uren</th>
                 <th>Datum</th>
+                <th>Status</th>
             </tr>
-            <?php foreach ($projects as $p): 
-                // Totaal uren en eerste datum voor dit project
+            <?php foreach ($projects as $p): if (($p['status'] ?? 'ongoing') !== 'ongoing') continue;
                 $projectHours = 0;
                 $dates = [];
                 foreach ($hours as $h) {
@@ -578,10 +863,126 @@ tr:hover {
                 <td><?= h($clientsById[$p['client_id']]['name'] ?? 'Onbekend') ?></td>
                 <td><?= $projectHours ?></td>
                 <td><?= $firstDate ? date('d-m-Y', strtotime($firstDate)) : '-' ?></td>
+                <td>
+                    <span style="color:#2563eb;font-weight:600;">Lopend</span>
+                </td>
             </tr>
             <?php endforeach; ?>
         </table>
         <a href="?page=projects" style="display:inline-block;margin-top:1em;">Bekijk alle projecten</a>
+    </div>
+        <?php elseif ($page === 'stats'): ?>
+            <h1 style="margin-bottom:1.5em;">📊 Statistieken</h1>
+    <div class="stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:2em;margin-bottom:2em;">
+        <div class="stat-card" style="background:#2563eb;color:#fff;padding:2em 1.5em;border-radius:14px;box-shadow:0 4px 24px #2563eb22;display:flex;flex-direction:column;align-items:flex-start;">
+            <div style="font-size:2.2em;font-weight:700;line-height:1;"><?= count($clients) ?></div>
+            <div style="font-size:1.1em;opacity:.85;">Klanten</div>
+        </div>
+        <div class="stat-card" style="background:#22c55e;color:#fff;padding:2em 1.5em;border-radius:14px;box-shadow:0 4px 24px #22c55e22;display:flex;flex-direction:column;align-items:flex-start;">
+            <div style="font-size:2.2em;font-weight:700;line-height:1;"><?= count($projects) ?></div>
+            <div style="font-size:1.1em;opacity:.85;">Projecten</div>
+            <div style="margin-top:.7em;font-size:.98em;">
+                <span style="background:#fff2;border-radius:6px;padding:2px 8px 2px 6px;margin-right:6px;">
+                    <span style="color:#fff;font-weight:600;"><?= count($ongoingProjects) ?></span> lopend
+                </span>
+                <span style="background:#fff2;border-radius:6px;padding:2px 8px 2px 6px;">
+                    <span style="color:#fff;font-weight:600;"><?= count($finishedProjects) ?></span> afgerond
+                </span>
+            </div>
+        </div>
+        <div class="stat-card" style="background:#18181b;color:#fff;padding:2em 1.5em;border-radius:14px;box-shadow:0 4px 24px #0002;display:flex;flex-direction:column;align-items:flex-start;">
+            <div style="font-size:2.2em;font-weight:700;line-height:1;"><?= array_sum(array_column($hours, 'hours')) ?></div>
+            <div style="font-size:1.1em;opacity:.85;">Uren geregistreerd</div>
+            <div style="margin-top:.7em;font-size:.98em;">
+                <span style="background:#fff1;border-radius:6px;padding:2px 8px 2px 6px;margin-right:6px;">
+                    <span style="color:#fff;font-weight:600;"><?= $hoursThisWeek ?></span> deze week
+                </span>
+                <span style="background:#fff1;border-radius:6px;padding:2px 8px 2px 6px;">
+                    <span style="color:#fff;font-weight:600;"><?= $hoursToday ?></span> vandaag
+                </span>
+            </div>
+        </div>
+        <div class="stat-card" style="background:#fff;color:#222;padding:2em 1.5em;border-radius:14px;box-shadow:0 4px 24px #0002;display:flex;flex-direction:column;align-items:flex-start;">
+            <div style="font-size:2.2em;font-weight:700;line-height:1;"><?= $totalInvoices ?></div>
+            <div style="font-size:1.1em;opacity:.85;">Facturen</div>
+            <div style="margin-top:.7em;font-size:.98em;">
+                <span style="background:#22c55e22;color:#22c55e;font-weight:600;border-radius:6px;padding:2px 8px 2px 6px;margin-right:6px;"><?= $paidInvoices ?> betaald</span>
+                <span style="background:#ef444422;color:#ef4444;font-weight:600;border-radius:6px;padding:2px 8px 2px 6px;"><?= $unpaidInvoices ?> open</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex" style="gap:2em;flex-wrap:wrap;">
+        <div class="card" style="flex:1;min-width:320px;">
+            <h3 style="margin-top:0;">Uren per maand</h3>
+            <canvas id="hoursPerMonthChart" height="180"></canvas>
+        </div>
+        <div class="card" style="flex:1;min-width:320px;">
+            <h3 style="margin-top:0;">Projectstatus</h3>
+            <canvas id="projectStatusChart" height="180"></canvas>
+            <div style="margin-top:1.2em;">
+                <span style="display:inline-block;width:14px;height:14px;background:#2563eb;border-radius:3px;margin-right:6px;vertical-align:middle;"></span>
+                Lopend: <strong><?= count($ongoingProjects) ?></strong>
+                <span style="display:inline-block;width:14px;height:14px;background:#22c55e;border-radius:3px;margin:0 6px 0 18px;vertical-align:middle;"></span>
+                Afgerond: <strong><?= count($finishedProjects) ?></strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex" style="gap:2em;flex-wrap:wrap;margin-top:2em;">
+        <div class="card" style="flex:1;min-width:320px;">
+            <h3 style="margin-top:0;">Top 5 projecten (uren)</h3>
+            <ol style="padding-left:1.2em;margin:0;">
+                <?php foreach ($topProjects as $pid => $hcount): ?>
+                    <li style="margin-bottom:.5em;">
+                        <span style="font-weight:600;"><?= h($projectsById[$pid]['name'] ?? 'Onbekend') ?></span>
+                        <span style="color:#2563eb;font-weight:500;">(<?= $hcount ?> uur)</span>
+                    </li>
+                <?php endforeach; ?>
+            </ol>
+        </div>
+        <div class="card" style="flex:1;min-width:320px;">
+            <h3 style="margin-top:0;">Top 5 klanten (projecten)</h3>
+            <ol style="padding-left:1.2em;margin:0;">
+                <?php foreach ($topClients as $cid => $count): ?>
+                    <li style="margin-bottom:.5em;">
+                        <span style="font-weight:600;"><?= h($clientsById[$cid]['name'] ?? 'Onbekend') ?></span>
+                        <span style="color:#22c55e;font-weight:500;">(<?= $count ?> projecten)</span>
+                    </li>
+                <?php endforeach; ?>
+            </ol>
+        </div>
+        <div class="card" style="flex:1;min-width:320px;">
+            <h3 style="margin-top:0;">Facturatie</h3>
+            <ul style="list-style:none;padding:0;margin:0;">
+                <li>Totaal gefactureerd: <strong>€<?= number_format($totalInvoiced, 2, ',', '.') ?></strong></li>
+                <li>Gemiddelde factuur: <strong>€<?= number_format($avgInvoice, 2, ',', '.') ?></strong></li>
+                <li>Grootste factuur: <strong>€<?= number_format($maxInvoice, 2, ',', '.') ?></strong></li>
+            </ul>
+            <h4 style="margin-top:1.5em;margin-bottom:.7em;">Openstaand per klant</h4>
+            <ul style="list-style:none;padding:0;margin:0;">
+                <?php foreach ($unpaidByClient as $cid => $amount): ?>
+                    <li>
+                        <span style="font-weight:600;"><?= h($clientsById[$cid]['name'] ?? 'Onbekend') ?>:</span>
+                        <span style="color:#ef4444;font-weight:500;">€<?= number_format($amount, 2, ',', '.') ?></span>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <div class="card" style="flex:1;min-width:320px;">
+            <h3 style="margin-top:0;">Recente activiteit</h3>
+            <ul style="list-style:none;padding:0;margin:0;">
+                <?php foreach ($recentHours as $h): ?>
+                    <li>
+                        <?= date('d-m-Y', strtotime($h['date'])) ?>: 
+                        <span style="font-weight:600;"><?= h($projectsById[$h['project_id']]['name'] ?? 'Onbekend project') ?></span>, 
+                        <span style="color:#2563eb;font-weight:500;"><?= $h['hours'] ?> uur</span>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+            <h4 style="margin-top:1.5em;margin-bottom:.7em;">Uren deze maand</h4>
+            <p style="margin:0;"><strong><?= $monthHours ?></strong> uur geregistreerd in <?= date('F Y') ?></p>
+        </div>
     </div>
         <?php elseif ($page === 'invoices'): ?>
             <h1>Facturen</h1>
@@ -646,11 +1047,11 @@ tr:hover {
             <div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
         <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
             <div style="display:flex; flex-direction:column; min-width:160px;">
-                <label for="advSearch" style="margin-bottom:0.2em; color:#555;">Zoeken</label>
-                <input id="advSearch" type="text" placeholder="Zoekterm..." autocomplete="off">
+                <label for="advSearch" style="margin-bottom:0.2em;">Zoeken</label>
+                <input id="advSearch" type="text" placeholder="..." autocomplete="off">
             </div>
             <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advCol" style="margin-bottom:0.2em; color:#555;">Kolom</label>
+                <label for="advCol" style="margin-bottom:0.2em;">Kolom</label>
                 <select id="advCol">
                     <option value="all">Alle</option>
                     <option value="0">Factuurnr</option>
@@ -659,7 +1060,7 @@ tr:hover {
                 </select>
             </div>
             <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advStatus" style="margin-bottom:0.2em; color:#555;">Status</label>
+                <label for="advStatus" style="margin-bottom:0.2em;">Status</label>
                 <select id="advStatus">
                     <option value="">Alle</option>
                     <option value="unpaid">Open</option>
@@ -667,11 +1068,11 @@ tr:hover {
                 </select>
             </div>
             <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advDateFrom" style="margin-bottom:0.2em; color:#555;">Datum vanaf</label>
+                <label for="advDateFrom" style="margin-bottom:0.2em;">Datum vanaf</label>
                 <input id="advDateFrom" type="date">
             </div>
             <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advDateTo" style="margin-bottom:0.2em; color:#555;">Datum t/m</label>
+                <label for="advDateTo" style="margin-bottom:0.2em;">Datum t/m</label>
                 <input id="advDateTo" type="date">
             </div>
         </div>
@@ -756,11 +1157,11 @@ tr:hover {
             <div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
         <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
             <div style="display:flex; flex-direction:column; min-width:160px;">
-                <label for="advSearch" style="margin-bottom:0.2em; color:#555;">Zoeken</label>
-                <input id="advSearch" type="text" placeholder="Zoekterm..." autocomplete="off">
+                <label for="advSearch" style="margin-bottom:0.2em;">Zoeken</label>
+                <input id="advSearch" type="text" placeholder="..." autocomplete="off">
             </div>
             <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advCol" style="margin-bottom:0.2em; color:#555;">Kolom</label>
+                <label for="advCol" style="margin-bottom:0.2em;">Kolom</label>
                 <select id="advCol">
                     <option value="all">Alle</option>
                     <option value="0">Project</option>
@@ -768,11 +1169,11 @@ tr:hover {
                 </select>
             </div>
             <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advDateFrom" style="margin-bottom:0.2em; color:#555;">Datum vanaf</label>
+                <label for="advDateFrom" style="margin-bottom:0.2em;">Datum vanaf</label>
                 <input id="advDateFrom" type="date">
             </div>
             <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advDateTo" style="margin-bottom:0.2em; color:#555;">Datum t/m</label>
+                <label for="advDateTo" style="margin-bottom:0.2em;">Datum t/m</label>
                 <input id="advDateTo" type="date">
             </div>
         </div>
@@ -819,11 +1220,11 @@ tr:hover {
             <div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
         <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
             <div style="display:flex; flex-direction:column; min-width:160px;">
-                <label for="advSearch" style="margin-bottom:0.2em; color:#555;">Zoeken</label>
-                <input id="advSearch" type="text" placeholder="Zoekterm..." autocomplete="off">
+                <label for="advSearch" style="margin-bottom:0.2em;">Zoeken</label>
+                <input id="advSearch" type="text" placeholder="..." autocomplete="off">
             </div>
             <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advCol" style="margin-bottom:0.2em; color:#555;">Kolom</label>
+                <label for="advCol" style="margin-bottom:0.2em;">Kolom</label>
                 <select id="advCol">
                     <option value="all">Alle</option>
                     <option value="0">Naam</option>
@@ -865,6 +1266,12 @@ tr:hover {
                     <label>Projectnaam
                         <input type="text" name="name" value="<?= h($project['name']) ?>" required>
                     </label>
+                    <label>Status
+    <select name="status" required>
+        <option value="ongoing" <?= (isset($project['status']) && $project['status'] === 'ongoing') ? 'selected' : '' ?>>Lopend</option>
+        <option value="finished" <?= (isset($project['status']) && $project['status'] === 'finished') ? 'selected' : '' ?>>Afgerond</option>
+    </select>
+</label>
                     <button type="submit">Opslaan</button>
                     <a href="?page=projects" style="margin-left:1em;">Annuleren</a>
                 </form>
@@ -881,17 +1288,23 @@ tr:hover {
                     <label>Projectnaam
                         <input type="text" name="name" required>
                     </label>
+                    <label>Status
+    <select name="status" required>
+        <option value="ongoing">Lopend</option>
+        <option value="finished">Afgerond</option>
+    </select>
+</label>
                     <button type="submit">Toevoegen</button>
                 </form>
             <?php endif; ?>
             <div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
         <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
             <div style="display:flex; flex-direction:column; min-width:160px;">
-                <label for="advSearch" style="margin-bottom:0.2em; color:#555;">Zoeken</label>
-                <input id="advSearch" type="text" placeholder="Zoekterm..." autocomplete="off">
+                <label for="advSearch" style="margin-bottom:0.2em;">Zoeken</label>
+                <input id="advSearch" type="text" placeholder="..." autocomplete="off">
             </div>
             <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advCol" style="margin-bottom:0.2em; color:#555;">Kolom</label>
+                <label for="advCol" style="margin-bottom:0.2em;">Kolom</label>
                 <select id="advCol">
                     <option value="all">Alle</option>
                     <option value="0">Project</option>
@@ -901,11 +1314,20 @@ tr:hover {
         </div>
     </div>
             <table>
-                <tr><th>Project</th><th>Klant</th><th></th><th></th></tr>
+                <tr><th>Project</th><th>Klant</th><th>Status</th><th></th><th></th></tr>
                 <?php foreach ($projects as $p): ?>
                     <tr>
                         <td><?= h($p['name']) ?></td>
                         <td><?= h($clientsById[$p['client_id']]['name'] ?? 'Onbekend') ?></td>
+                        <td>
+                            <?php
+                                if (($p['status'] ?? 'ongoing') === 'finished') {
+                                    echo '<span style="color:#22c55e;font-weight:600;">Afgerond</span>';
+                                } else {
+                                    echo '<span style="color:#2563eb;font-weight:600;">Lopend</span>';
+                                }
+                            ?>
+                        </td>
                         <td><a href="?page=projects&action=edit&id=<?= $p['id'] ?>">Bewerken</a></td>
                         <td>
                             <a href="#" class="delete-link" data-href="?page=projects&action=delete&id=<?= $p['id'] ?>" style="color:red;">Verwijderen</a>
@@ -922,7 +1344,7 @@ tr:hover {
     </div>
 <!-- Interactive Confirm Modal -->
 <div id="confirmModal" style="display:none;position:fixed;z-index:99999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.25);align-items:center;justify-content:center;">
-  <div style="background:#fff;padding:2em 2em 1.5em 2em;border-radius:12px;box-shadow:0 8px 32px #0002;max-width:90vw;min-width:260px;text-align:center;">
+  <div class="modal-content" style="padding:2em 2em 1.5em 2em;border-radius:12px;box-shadow:0 8px 32px #0002;max-width:90vw;min-width:260px;text-align:center;">
     <!-- Bigger Danger icon -->
     <div style="margin-bottom:1em;">
       <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
@@ -931,7 +1353,7 @@ tr:hover {
         <circle cx="36" cy="52" r="4" fill="#ef4444"/>
       </svg>
     </div>
-    <div style="font-size:1.1em;margin-bottom:1.5em;">Weet je zeker dat je dit wilt verwijderen?</div>
+    <div style="font-size:1.1em;margin-bottom:1.5em;">Weet u zeker dat u dit wilt verwijderen?</div>
     <div style="color:#ef4444;font-size:0.98em;margin-bottom:1.5em;">
       <strong>Let op:</strong> Dit kan <u>niet</u> ongedaan worden gemaakt.
     </div>
@@ -940,12 +1362,123 @@ tr:hover {
   </div>
 </div>
 <div id="saveConfirmModal" style="display:none;position:fixed;z-index:99999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.25);align-items:center;justify-content:center;">
-  <div style="background:#fff;padding:2em 2em 1.5em 2em;border-radius:12px;box-shadow:0 8px 32px #0002;max-width:90vw;min-width:260px;text-align:center;">
-    <div style="font-size:1.1em;margin-bottom:1.5em;">Weet je zeker dat je deze wijziging wilt opslaan?</div>
+  <div class="modal-content" style="padding:2em 2em 1.5em 2em;border-radius:12px;box-shadow:0 8px 32px #0002;max-width:90vw;min-width:260px;text-align:center;">
+    <div style="font-size:1.1em;margin-bottom:1.5em;">Weet u zeker dat u deze wijziging wilt opslaan?</div>
     <button id="saveConfirmYes" style="background:#2563eb;color:#fff;padding:0.7em 2em;border:none;border-radius:6px;font-weight:600;cursor:pointer;margin-right:1em;">Ja, opslaan</button>
     <button id="saveConfirmNo" style="background:#e5e7eb;color:#222;padding:0.7em 2em;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Annuleren</button>
   </div>
 </div>
+<button id="darkModeToggle" style="position:absolute;top:18px;right:18px;padding:0.5em 1.2em;border-radius:6px;border:none;background:#222;color:#fff;cursor:pointer;font-weight:600;">🌙 Donker</button>
+
+<script>
+// Toggle dark mode
+document.getElementById('darkModeToggle').onclick = function() {
+    document.body.classList.toggle('dark-mode');
+    if(document.body.classList.contains('dark-mode')) {
+        localStorage.setItem('darkMode', '1');
+        this.innerHTML = '☀️ Licht';
+        this.style.color = '#f3f4f6';
+        this.style.background = '#18181b';
+    } else {
+        localStorage.removeItem('darkMode');
+        this.innerHTML = '🌙 Donker';
+        this.style.color = '#f3f4f6';
+        this.style.background = '#23232a';
+    }
+};
+// On load, apply dark mode if set
+if(localStorage.getItem('darkMode')) {
+    document.body.classList.add('dark-mode');
+    var btn = document.getElementById('darkModeToggle');
+    btn.innerHTML = '☀️ Licht';
+    btn.style.color = '#f3f4f6';
+    btn.style.background = '#18181b';
+}
+</script>
+
+<style>
+body.dark-mode {
+    background: #18181b !important;
+}
+
+body.dark-mode .main {
+    background: transparent !important;
+    /* No border, no shadow, keep it flat */
+}
+
+body.dark-mode .sidebar {
+    background: #15161a !important;
+    color: #fff !important;
+    border-right: 1px solid #23232a !important;
+}
+
+body.dark-mode .card {
+    background: #23232a !important;
+    color: #f3f4f6 !important;
+    border-color: #333 !important;
+}
+
+body.dark-mode table {
+    background: #23232a !important;
+    color: #f3f4f6 !important;
+}
+
+body.dark-mode th, body.dark-mode td {
+    background: #23232a !important;
+    color: #f3f4f6 !important;
+}
+
+body.dark-mode a {
+    color: #60a5fa !important;
+}
+
+body.dark-mode input, 
+body.dark-mode select, 
+body.dark-mode textarea {
+    background: #18181b !important;
+    color: #f3f4f6 !important;
+    border-color: #333 !important;
+}
+
+body.dark-mode .popup-success {
+    background: #166534 !important;
+    color: #fff !important;
+}
+body.dark-mode .advanced-filters label {
+    color: #f3f4f6 !important;
+}
+
+body.dark-mode .advanced-filters input,
+body.dark-mode .advanced-filters select {
+    color: #f3f4f6 !important;
+}
+
+/* Placeholder color for dark mode */
+body.dark-mode .advanced-filters input::placeholder {
+    color: #a1a1aa !important;
+    opacity: 1;
+}
+body.dark-mode h1 {
+    color: #f3f4f6 !important;
+}
+body.dark-mode .modal-content {
+    background: #23232a !important;
+    color: #f3f4f6 !important;
+    border-color: #333 !important;
+}
+body.dark-mode a.delete-link,
+body.dark-mode a.delete-link:visited {
+    color: #ef4444 !important;
+    font-weight: 500;
+    text-decoration: underline !important;
+}
+body.dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
+body.dark-mode canvas {
+    background: #23232a !important;
+}
+</style>
 <script>
 document.querySelectorAll('.delete-link').forEach(function(link) {
     link.addEventListener('click', function(e) {
@@ -969,6 +1502,15 @@ document.getElementById('confirmNo').onclick = function() {
 // document.getElementById('tableSearch').addEventListener('input', filterTable);
 // document.getElementById('tableFilter').addEventListener('change', filterTable);
 // document.getElementById('statusFilter').addEventListener('change', filterTable);
+
+
+// Only add listeners if the element exists
+if (document.getElementById('advSearch')) {
+    document.getElementById('advSearch').addEventListener('input', filterTable);
+}
+// document.getElementById('tableFilter').addEventListener('change', filterTable);
+// document.getElementById('statusFilter').addEventListener('change', filterTable);
+
 
 // Only add listeners if the element exists
 if (document.getElementById('advSearch')) {
