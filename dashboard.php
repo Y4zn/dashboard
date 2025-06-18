@@ -58,28 +58,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     // Invoices
     if ($page === 'invoices' && !empty($_POST['client_id']) && !empty($_POST['amount'])) {
-        $paid = isset($_POST['paid']) ? 1 : 0;
-        if (!empty($_POST['edit_id'])) {
-            $stmt = $pdo->prepare("UPDATE invoices SET client_id = :client_id, project_id = :project_id, amount = :amount, paid = :paid WHERE id = :id");
-            $stmt->execute([
-                'client_id' => $_POST['client_id'],
-                'project_id' => $_POST['project_id'],
-                'amount' => $_POST['amount'],
-                'paid' => $paid,
-                'id' => $_POST['edit_id']
-            ]);
-            $_SESSION['success_message'] = "Factuur succesvol bijgewerkt!";
-        } else {
-            $stmt = $pdo->prepare("INSERT INTO invoices (client_id, project_id, amount, date, paid) VALUES (:client_id, :project_id, :amount, CURDATE(), :paid)");
-            $stmt->execute([
-                'client_id' => $_POST['client_id'],
-                'project_id' => $_POST['project_id'],
-                'amount' => $_POST['amount'],
-                'paid' => $paid
-            ]);
-            $_SESSION['success_message'] = "Factuur succesvol aangemaakt!";
-        }
+    $paid = isset($_POST['paid']) ? 1 : 0;
+    $repair_date = $_POST['repair_date'] ?? null;
+    $license_plate = $_POST['license_plate'] ?? '';
+    $car_model = $_POST['car_model'] ?? '';
+    if (!empty($_POST['edit_id'])) {
+        $stmt = $pdo->prepare("UPDATE invoices SET client_id = :client_id, project_id = :project_id, amount = :amount, paid = :paid, repair_date = :repair_date, license_plate = :license_plate, car_model = :car_model WHERE id = :id");
+        $stmt->execute([
+            'client_id' => $_POST['client_id'],
+            'project_id' => $_POST['project_id'],
+            'amount' => $_POST['amount'],
+            'paid' => $paid,
+            'repair_date' => $repair_date,
+            'license_plate' => $license_plate,
+            'car_model' => $car_model,
+            'id' => $_POST['edit_id']
+        ]);
+        $_SESSION['success_message'] = "Factuur succesvol bijgewerkt!";
+    } else {
+        $stmt = $pdo->prepare("INSERT INTO invoices (client_id, project_id, amount, date, paid, repair_date, license_plate, car_model) VALUES (:client_id, :project_id, :amount, CURDATE(), :paid, :repair_date, :license_plate, :car_model)");
+        $stmt->execute([
+            'client_id' => $_POST['client_id'],
+            'project_id' => $_POST['project_id'],
+            'amount' => $_POST['amount'],
+            'paid' => $paid,
+            'repair_date' => $repair_date,
+            'license_plate' => $license_plate,
+            'car_model' => $car_model
+        ]);
+        $_SESSION['success_message'] = "Factuur succesvol aangemaakt!";
     }
+}
     // Hours
     if ($page === 'hours' && !empty($_POST['project_id']) && !empty($_POST['date']) && !empty($_POST['hours'])) {
         if (!empty($_POST['edit_id'])) {
@@ -1008,6 +1017,15 @@ body.dark-mode .stat-badge-blue {
         <!-- Options will be filled by JS -->
     </select>
 </label>
+<label>Reparatiedatum
+    <input type="date" name="repair_date" value="<?= h($invoice['repair_date'] ?? '') ?>">
+</label>
+<label>Kenteken
+    <input type="text" name="license_plate" value="<?= h($invoice['license_plate'] ?? '') ?>">
+</label>
+<label>Merk
+    <input type="text" name="car_model" value="<?= h($invoice['car_model'] ?? '') ?>">
+</label>
                     <label>Bedrag (€)
                         <input type="number" name="amount" step="0.01" value="<?= h($invoice['amount']) ?>" required>
                     </label>
@@ -1035,6 +1053,15 @@ body.dark-mode .stat-badge-blue {
         <option value="">-- Kies project --</option>
         <!-- Options will be filled by JS -->
     </select>
+</label>
+<label>Reparatiedatum
+    <input type="date" name="repair_date" value="<?= h($invoice['repair_date'] ?? '') ?>">
+</label>
+<label>Kenteken
+    <input type="text" name="license_plate" value="<?= h($invoice['license_plate'] ?? '') ?>">
+</label>
+<label>Merk
+    <input type="text" name="car_model" value="<?= h($invoice['car_model'] ?? '') ?>">
 </label>
                     <label>Bedrag (€)
                         <input type="number" name="amount" step="0.01" required>
@@ -1078,7 +1105,7 @@ body.dark-mode .stat-badge-blue {
     </div>
 
             <table>
-                <tr><th>Factuurnr</th><th>Klant</th><th>Project</th><th>Bedrag</th><th>Datum</th><th>Status</th><th></th><th></th></tr>
+                <tr><th>Factuurnr</th><th>Klant</th><th>Project</th><th>Bedrag</th><th>Datum</th><th>Status</th><th></th><th></th><th></th></tr>
                 <?php foreach ($invoices as $inv): ?>
 <tr>
     <td><?= h($inv['id']) ?></td>
@@ -1101,6 +1128,9 @@ body.dark-mode .stat-badge-blue {
             <span style="color:#ef4444;font-weight:600;">Open</span>
         <?php endif; ?>
     </td>
+    <td>
+    <a href="generate_invoice.php?id=<?= $inv['id'] ?>" target="_blank" style="color:green;">Download PDF</a>
+</td>
     <td><a href="?page=invoices&action=edit&id=<?= $inv['id'] ?>" style="color:blue;">Bewerken</a></td>
     <td><a href="#" class="delete-link" data-href="?page=invoices&action=delete&id=<?= $inv['id'] ?>" style="color:red;">Verwijderen</a></td>
 </tr>
@@ -1682,7 +1712,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-// ...existing code...
 });
 </script>
 </body>
