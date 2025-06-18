@@ -21,6 +21,16 @@ $page = $_GET['page'] ?? 'dashboard';
 
 function h($str) { return htmlspecialchars($str, ENT_QUOTES, 'UTF-8'); }
 
+function generateUniqueFactuurnummer($pdo) {
+    do {
+        $number = str_pad(mt_rand(1, 9999999999), 10, '0', STR_PAD_LEFT);
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM invoices WHERE number = ?");
+        $stmt->execute([$number]);
+        $exists = $stmt->fetchColumn();
+    } while ($exists);
+    return $number;
+}
+
 // Handle form submissions (add/edit)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Clients
@@ -57,17 +67,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     // Invoices
-    if ($page === 'invoices' && !empty($_POST['client_id']) && !empty($_POST['amount'])) {
+if ($page === 'invoices' && !empty($_POST['client_id']) && !empty($_POST['amount'])) {
     $paid = isset($_POST['paid']) ? 1 : 0;
     $repair_date = $_POST['repair_date'] ?? null;
     $license_plate = $_POST['license_plate'] ?? '';
     $car_model = $_POST['car_model'] ?? '';
     if (!empty($_POST['edit_id'])) {
-        $stmt = $pdo->prepare("UPDATE invoices SET client_id = :client_id, project_id = :project_id, amount = :amount, paid = :paid, repair_date = :repair_date, license_plate = :license_plate, car_model = :car_model WHERE id = :id");
+        $stmt = $pdo->prepare("UPDATE invoices SET client_id = :client_id, project_id = :project_id, amount = :amount, paid = :paid, repair_date = :repair_date, license_plate = :license_plate, car_model = :car_model, number = :number WHERE id = :id");
         $stmt->execute([
             'client_id' => $_POST['client_id'],
             'project_id' => $_POST['project_id'],
             'amount' => $_POST['amount'],
+            'number' => $_POST['number'], // Use the posted number for edit
             'paid' => $paid,
             'repair_date' => $repair_date,
             'license_plate' => $license_plate,
@@ -76,11 +87,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         $_SESSION['success_message'] = "Factuur succesvol bijgewerkt!";
     } else {
-        $stmt = $pdo->prepare("INSERT INTO invoices (client_id, project_id, amount, date, paid, repair_date, license_plate, car_model) VALUES (:client_id, :project_id, :amount, CURDATE(), :paid, :repair_date, :license_plate, :car_model)");
+        $factuurnummer = generateUniqueFactuurnummer($pdo);
+        $stmt = $pdo->prepare("INSERT INTO invoices (client_id, project_id, amount, date, paid, repair_date, license_plate, car_model, number) VALUES (:client_id, :project_id, :amount, CURDATE(), :paid, :repair_date, :license_plate, :car_model, :number)");
         $stmt->execute([
             'client_id' => $_POST['client_id'],
             'project_id' => $_POST['project_id'],
             'amount' => $_POST['amount'],
+            'number' => $factuurnummer,
             'paid' => $paid,
             'repair_date' => $repair_date,
             'license_plate' => $license_plate,
@@ -249,6 +262,104 @@ foreach ($hours as $h) {
     <title>Dashboard - Zelfstandig Monteur</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+.sort-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  user-select: none;
+  font-size: 0.98em;
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+.sort-switch input[type="checkbox"] {
+  display: none;
+}
+.sort-switch .slider {
+  width: 32px;
+  height: 18px;
+  background: #23232a;
+  border-radius: 999px;
+  position: relative;
+  transition: background 0.18s;
+  box-shadow: 0 1.5px 6px #0001;
+  margin: 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+.sort-switch .slider::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.18s cubic-bezier(.4,2.3,.3,1), background 0.18s;
+  box-shadow: 0 1px 3px #0002;
+}
+.sort-switch input[type="checkbox"]:checked + .slider::before {
+  transform: translateX(14px);
+  background: #fff;
+}
+.sort-switch input[type="checkbox"]:checked + .slider {
+  background: #2563eb;
+}
+.switch-label {
+  font-size: 0.97em;
+  font-weight: 600;
+  min-width: 36px;
+  text-align: center;
+  letter-spacing: 0.1px;
+  transition: color 0.15s;
+}
+.switch-label-left {
+  color: #2563eb;
+  margin-left: 0.5em;
+}
+.switch-label-right {
+  color: #888;
+  margin-left: 0.2em;
+}
+.sort-switch input[type="checkbox"]:checked ~ .switch-label-left {
+  color: #888;
+}
+.sort-switch input[type="checkbox"]:checked ~ .switch-label-right {
+  color: #2563eb;
+}
+        .sortable {
+
+    cursor: pointer;
+    user-select: none;
+}
+body.dark-mode .sort-switch .slider {
+  background: #353a45 !important;
+  box-shadow: 0 1.5px 6px #0003;
+}
+body.dark-mode .sort-switch input[type="checkbox"]:checked + .slider {
+  background: #60a5fa !important;
+}
+body.dark-mode .sort-switch .slider::before {
+  background: #fff !important;
+}
+body.dark-mode .switch-label-left,
+body.dark-mode .switch-label-right {
+  color: #a1a1aa !important;
+}
+body.dark-mode .sort-switch input[type="checkbox"]:checked ~ .switch-label-left {
+  color: #a1a1aa !important;
+}
+body.dark-mode .sort-switch input[type="checkbox"]:checked ~ .switch-label-right {
+  color: #60a5fa !important;
+}
+body.dark-mode .switch-label-left {
+  color: #60a5fa !important;
+}
+.sortable:hover {
+    text-decoration: underline;
+}
         :root {
             --primary: #2563eb;
             --primary-dark: #1e40af;
@@ -637,6 +748,19 @@ body.dark-mode th, body.dark-mode td {
 
 body.dark-mode a {
     color: #60a5fa !important;
+}
+body.dark-mode #darkModeToggle {
+    background: #a1a1aa !important;
+    color: #18181b !important;
+    box-shadow: 0 2px 12px #0003;
+    border: 1.5px solid #393a40;
+    font-weight: 700;
+    transition: background 0.2s, color 0.2s;
+}
+body.dark-mode #darkModeToggle:hover,
+body.dark-mode #darkModeToggle:focus {
+    background: #a1a1aa !important;
+    border-color: #2563eb;
 }
 
 body.dark-mode input, 
@@ -1105,10 +1229,26 @@ body.dark-mode .stat-badge-blue {
     </div>
 
             <table>
-                <tr><th>Factuurnr</th><th>Klant</th><th>Project</th><th>Bedrag</th><th>Datum</th><th>Status</th><th></th><th></th><th></th></tr>
+                <tr>
+    <th><span class="sortable" data-col="0">Factuurnr</span></th>
+    <th><span class="sortable" data-col="1">Klant</span></th>
+    <th><span class="sortable" data-col="2">Project</span></th>
+    <th><span class="sortable" data-col="3">Bedrag</span></th>
+    <th><span class="sortable" data-col="4">Datum</span></th>
+    <th><span class="sortable" data-col="5">Status</span></th>
+    <th></th><th></th>
+<th colspan="1" style="text-align:right;">
+  <label class="sort-switch">
+    <input type="checkbox" class="sort-order-toggle" checked>
+    <span class="slider"></span>
+    <span class="switch-label switch-label-left">Nieuwst</span>
+    <span class="switch-label switch-label-right">Oudst</span>
+  </label>
+</th>
+</tr>
                 <?php foreach ($invoices as $inv): ?>
 <tr>
-    <td><?= h($inv['id']) ?></td>
+    <td><?= h($inv['number'] ?? $inv['id']) ?></td>
     <td><?= h($clientsById[$inv['client_id']]['name'] ?? 'Onbekend') ?></td>
     <td>
         <?php
@@ -1208,7 +1348,19 @@ body.dark-mode .stat-badge-blue {
         </div>
     </div>
             <table>
-                <tr><th>Project</th><th>Datum</th><th>Uren</th><th></th><th></th></tr>
+<tr>
+    <th><span class="sortable" data-col="0">Project</span></th>
+    <th><span class="sortable" data-col="1">Datum</span></th>
+    <th><span class="sortable" data-col="2">Uren</span></th>
+    <th></th><th colspan="1" style="text-align:right;">
+  <label class="sort-switch">
+    <input type="checkbox" class="sort-order-toggle" checked>
+    <span class="slider"></span>
+    <span class="switch-label switch-label-left">Nieuwst</span>
+    <span class="switch-label switch-label-right">Oudst</span>
+  </label>
+</th>
+</tr>
                 <?php foreach ($hours as $h): ?>
                     <tr>
                         <td><?= h($projectsById[$h['project_id']]['name'] ?? 'Onbekend') ?></td>
@@ -1262,7 +1414,17 @@ body.dark-mode .stat-badge-blue {
         </div>
     </div>
             <table>
-                <tr><th>Naam</th><th></th><th></th></tr>
+             <tr>
+    <th><span class="sortable" data-col="0">Naam</span></th>
+    <th></th><th colspan="1" style="text-align:right;">
+  <label class="sort-switch">
+    <input type="checkbox" class="sort-order-toggle" checked>
+    <span class="slider"></span>
+    <span class="switch-label switch-label-left">Nieuwst</span>
+    <span class="switch-label switch-label-right">Oudst</span>
+  </label>
+</th>
+</tr>
                 <?php foreach ($clients as $c): ?>
                     <tr>
                         <td><?= h($c['name']) ?></td>
@@ -1343,7 +1505,19 @@ body.dark-mode .stat-badge-blue {
         </div>
     </div>
             <table>
-                <tr><th>Project</th><th>Klant</th><th>Status</th><th></th><th></th></tr>
+                <tr>
+    <th><span class="sortable" data-col="0">Project</span></th>
+    <th><span class="sortable" data-col="1">Klant</span></th>
+    <th><span class="sortable" data-col="2">Status</span></th>
+    <th></th><th colspan="1" style="text-align:right;">
+  <label class="sort-switch">
+    <input type="checkbox" class="sort-order-toggle" checked>
+    <span class="slider"></span>
+    <span class="switch-label switch-label-left">Nieuwst</span>
+    <span class="switch-label switch-label-right">Oudst</span>
+  </label>
+</th>
+</tr>
                 <?php foreach ($projects as $p): ?>
                     <tr>
                         <td><?= h($p['name']) ?></td>
@@ -1712,6 +1886,55 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+});
+</script>
+<script>
+document.querySelectorAll('.sortable').forEach(function(header) {
+    header.style.cursor = 'pointer';
+    header.onclick = function() {
+        var table = header.closest('table');
+        var col = parseInt(header.dataset.col, 10);
+        var rows = Array.from(table.querySelectorAll('tr')).slice(1); // skip header
+        var asc = header.dataset.asc === "1" ? false : true;
+        rows.sort(function(a, b) {
+            var aText = a.children[col]?.textContent.trim() || '';
+            var bText = b.children[col]?.textContent.trim() || '';
+            // Try to compare as numbers, fallback to string
+            var aNum = parseFloat(aText.replace(/[^\d.-]/g, ''));
+            var bNum = parseFloat(bText.replace(/[^\d.-]/g, ''));
+            if (!isNaN(aNum) && !isNaN(bNum)) {
+                return asc ? aNum - bNum : bNum - aNum;
+            }
+            return asc ? aText.localeCompare(bText) : bText.localeCompare(aText);
+        });
+        rows.forEach(function(row) { table.appendChild(row); });
+        // Toggle sort direction
+        header.dataset.asc = asc ? "1" : "0";
+    };
+});
+</script>
+<script>
+document.querySelectorAll('.sort-order-toggle').forEach(function(toggle) {
+  toggle.addEventListener('change', function() {
+    var th = toggle.closest('th');
+    var table = th.closest('table');
+    var rows = Array.from(table.querySelectorAll('tr')).slice(1); // skip header
+
+    // Find the column index for the ID (adjust if needed)
+    var idCol = 0; // Change this if your ID is not the first column
+
+    rows.sort(function(a, b) {
+      var aId = parseInt(a.children[idCol].textContent.replace(/\D/g, ''), 10);
+      var bId = parseInt(b.children[idCol].textContent.replace(/\D/g, ''), 10);
+      if (toggle.checked) {
+        return bId - aId; // Nieuwst
+      } else {
+        return aId - bId; // Oudst
+      }
+    });
+
+    rows.forEach(function(row) { table.appendChild(row); });
+  });
 });
 </script>
 </body>
