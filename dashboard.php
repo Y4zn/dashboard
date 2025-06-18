@@ -664,6 +664,11 @@ body.dark-mode .modal-content {
     color: #f3f4f6 !important;
     border-color: #333 !important;
 }
+.modal-content {
+    background: #fff !important;
+    color: #222 !important;
+    border: 1px solid #e5e7eb !important;
+}
 body.dark-mode a.delete-link,
 body.dark-mode a.delete-link:visited {
     color: #ef4444 !important;
@@ -681,8 +686,8 @@ body.dark-mode canvas {
 .dashboard-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 2em;
-    margin-bottom: 2em;
+    gap: 3em 1em;
+    margin-bottom: 4em;
 }
 .stat-card-link {
     display: block;
@@ -774,7 +779,48 @@ body.dark-mode canvas {
     transform: scale(0.98);
     box-shadow: 0 2px 8px #2563eb22;
 }
-    </style>
+/* Dark mode for stat cards */
+body.dark-mode .stat-card {
+    background: #23232a !important;
+    color: #f3f4f6 !important;
+    box-shadow: 0 4px 24px #0008;
+    border: 1px solid #333;
+}
+body.dark-mode .stat-card-blue {
+    color: #60a5fa !important;
+}
+body.dark-mode .stat-card-green {
+    color: #4ade80 !important;
+}
+body.dark-mode .stat-card-dark {
+    color: #f3f4f6 !important;
+}
+body.dark-mode .stat-card-white {
+    color: #f3f4f6 !important;
+}
+
+/* Dark mode for stat badges */
+body.dark-mode .stat-badge {
+    background: #18181b !important;
+    color: #e5e7eb !important;
+}
+body.dark-mode .stat-badge-green {
+    background: #22c55e33 !important;
+    color: #4ade80 !important;
+}
+body.dark-mode .stat-badge-red {
+    background: #ef444433 !important;
+    color: #fca5a5 !important;
+}
+body.dark-mode .stat-badge-dark {
+    background: #18181b !important;
+    color: #e5e7eb !important;
+}
+body.dark-mode .stat-badge-blue {
+    background: #2563eb33 !important;
+    color: #60a5fa !important;
+}
+</style>
 </head>
 <body>
 <?php if (!empty($_SESSION['success_message'])): ?>
@@ -798,15 +844,10 @@ body.dark-mode canvas {
             <div class="stat-card stat-card-blue">
                 <div class="stat-card-value"><?= count($clients) ?></div>
                 <div class="stat-card-label">Klanten</div>
-            </div>
-        </a>
-        <a href="?page=projects" class="stat-card-link">
-            <div class="stat-card stat-card-green">
-                <div class="stat-card-value"><?= count($projects) ?></div>
-                <div class="stat-card-label">Projecten</div>
-                <div class="stat-card-badges">
-                    <span class="stat-badge stat-badge-green"><?= count($ongoingProjects) ?> lopend</span>
-                    <span class="stat-badge stat-badge-green"><?= count($finishedProjects) ?> afgerond</span>
+                <div style="margin-top:0.5em;font-size:0.98em;">
+                    <span style="background:#2563eb22;color:#2563eb;font-weight:600;border-radius:6px;padding:2px 8px 2px 6px;margin-right:6px;">
+                        <?= count($ongoingProjects) ?> lopende projecten
+                    </span>
                 </div>
             </div>
         </a>
@@ -835,9 +876,6 @@ body.dark-mode canvas {
     <div class="card" style="margin-top:2em;">
         <div style="display:flex;align-items:center;justify-content:space-between;">
             <h3 style="margin:0;">Projecten overzicht</h3>
-            <span style="font-size:1.1em;color:#2563eb;font-weight:600;">
-                Totaal <?= count($ongoingProjects) ?>
-            </span>
         </div>
         <table>
             <tr>
@@ -873,45 +911,6 @@ body.dark-mode canvas {
     </div>
         <?php elseif ($page === 'stats'): ?>
             <h1 style="margin-bottom:1.5em;">📊 Statistieken</h1>
-    <div class="stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:2em;margin-bottom:2em;">
-        <div class="stat-card" style="background:#2563eb;color:#fff;padding:2em 1.5em;border-radius:14px;box-shadow:0 4px 24px #2563eb22;display:flex;flex-direction:column;align-items:flex-start;">
-            <div style="font-size:2.2em;font-weight:700;line-height:1;"><?= count($clients) ?></div>
-            <div style="font-size:1.1em;opacity:.85;">Klanten</div>
-        </div>
-        <div class="stat-card" style="background:#22c55e;color:#fff;padding:2em 1.5em;border-radius:14px;box-shadow:0 4px 24px #22c55e22;display:flex;flex-direction:column;align-items:flex-start;">
-            <div style="font-size:2.2em;font-weight:700;line-height:1;"><?= count($projects) ?></div>
-            <div style="font-size:1.1em;opacity:.85;">Projecten</div>
-            <div style="margin-top:.7em;font-size:.98em;">
-                <span style="background:#fff2;border-radius:6px;padding:2px 8px 2px 6px;margin-right:6px;">
-                    <span style="color:#fff;font-weight:600;"><?= count($ongoingProjects) ?></span> lopend
-                </span>
-                <span style="background:#fff2;border-radius:6px;padding:2px 8px 2px 6px;">
-                    <span style="color:#fff;font-weight:600;"><?= count($finishedProjects) ?></span> afgerond
-                </span>
-            </div>
-        </div>
-        <div class="stat-card" style="background:#18181b;color:#fff;padding:2em 1.5em;border-radius:14px;box-shadow:0 4px 24px #0002;display:flex;flex-direction:column;align-items:flex-start;">
-            <div style="font-size:2.2em;font-weight:700;line-height:1;"><?= array_sum(array_column($hours, 'hours')) ?></div>
-            <div style="font-size:1.1em;opacity:.85;">Uren geregistreerd</div>
-            <div style="margin-top:.7em;font-size:.98em;">
-                <span style="background:#fff1;border-radius:6px;padding:2px 8px 2px 6px;margin-right:6px;">
-                    <span style="color:#fff;font-weight:600;"><?= $hoursThisWeek ?></span> deze week
-                </span>
-                <span style="background:#fff1;border-radius:6px;padding:2px 8px 2px 6px;">
-                    <span style="color:#fff;font-weight:600;"><?= $hoursToday ?></span> vandaag
-                </span>
-            </div>
-        </div>
-        <div class="stat-card" style="background:#fff;color:#222;padding:2em 1.5em;border-radius:14px;box-shadow:0 4px 24px #0002;display:flex;flex-direction:column;align-items:flex-start;">
-            <div style="font-size:2.2em;font-weight:700;line-height:1;"><?= $totalInvoices ?></div>
-            <div style="font-size:1.1em;opacity:.85;">Facturen</div>
-            <div style="margin-top:.7em;font-size:.98em;">
-                <span style="background:#22c55e22;color:#22c55e;font-weight:600;border-radius:6px;padding:2px 8px 2px 6px;margin-right:6px;"><?= $paidInvoices ?> betaald</span>
-                <span style="background:#ef444422;color:#ef4444;font-weight:600;border-radius:6px;padding:2px 8px 2px 6px;"><?= $unpaidInvoices ?> open</span>
-            </div>
-        </div>
-    </div>
-
     <div class="flex" style="gap:2em;flex-wrap:wrap;">
         <div class="card" style="flex:1;min-width:320px;">
             <h3 style="margin-top:0;">Uren per maand</h3>
@@ -919,7 +918,7 @@ body.dark-mode canvas {
         </div>
         <div class="card" style="flex:1;min-width:320px;">
             <h3 style="margin-top:0;">Projectstatus</h3>
-            <canvas id="projectStatusChart" height="180"></canvas>
+            <canvas id="projectStatusChart" style="max-width:400px;max-height:260px;display:block;margin:0 auto;" width="400" height="260"></canvas>
             <div style="margin-top:1.2em;">
                 <span style="display:inline-block;width:14px;height:14px;background:#2563eb;border-radius:3px;margin-right:6px;vertical-align:middle;"></span>
                 Lopend: <strong><?= count($ongoingProjects) ?></strong>
@@ -1624,6 +1623,66 @@ document.querySelectorAll('form.card').forEach(function(form) {
         }
         // If not editing, allow normal submit (no modal)
     });
+});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Data from PHP
+const monthsLabels = <?= json_encode(array_map(fn($m) => date('M Y', strtotime($m.'-01')), array_keys($months))) ?>;
+const monthsData = <?= json_encode(array_values($months)) ?>;
+const projectStatusLabels = ["Lopend", "Afgerond"];
+const projectStatusData = [<?= count($ongoingProjects) ?>, <?= count($finishedProjects) ?>];
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Uren per maand bar chart
+    if (document.getElementById('hoursPerMonthChart')) {
+        new Chart(document.getElementById('hoursPerMonthChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: monthsLabels,
+                datasets: [{
+                    label: 'Uren',
+                    data: monthsData,
+                    backgroundColor: '#2563eb'
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { color: '#888' } },
+                    x: { ticks: { color: '#888' } }
+                }
+            }
+        });
+    }
+
+    // Projectstatus doughnut chart
+    if (document.getElementById('projectStatusChart')) {
+        new Chart(document.getElementById('projectStatusChart').getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: projectStatusLabels,
+                datasets: [{
+                    data: projectStatusData,
+                    backgroundColor: ['#2563eb', '#22c55e']
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#888',
+                            font: { size: 14 },
+                            boxWidth: 14,   // Make the color box smaller
+                            boxHeight: 10,  // Make the color box shorter
+                            padding: 8      // Reduce space between legend items
+                        }
+                    }
+                }
+            }
+        });
+    }
+// ...existing code...
 });
 </script>
 </body>
