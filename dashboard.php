@@ -103,28 +103,33 @@ if ($page === 'invoices' && !empty($_POST['client_id']) && !empty($_POST['amount
     }
 }
     // Hours
-    if ($page === 'hours' && !empty($_POST['project_id']) && !empty($_POST['date']) && !empty($_POST['hours'])) {
-        if (!empty($_POST['edit_id'])) {
-            $stmt = $pdo->prepare("UPDATE hours SET project_id = :project_id, date = :date, hours = :hours WHERE id = :id");
-            $stmt->execute([
-                'project_id' => $_POST['project_id'],
-                'date' => $_POST['date'],
-                'hours' => $_POST['hours'],
-                'id' => $_POST['edit_id']
-            ]);
-            $_SESSION['success_message'] = "Uren succesvol bijgewerkt!";
-        } else {
-            $stmt = $pdo->prepare("INSERT INTO hours (project_id, date, hours) VALUES (:project_id, :date, :hours)");
-            $stmt->execute([
-                'project_id' => $_POST['project_id'],
-                'date' => $_POST['date'],
-                'hours' => $_POST['hours']
-            ]);
-            $_SESSION['success_message'] = "Uur succesvol toegevoegd!";
-        }
+if ($page === 'hours' && !empty($_POST['date']) && !empty($_POST['hours'])) {
+    $project_id = !empty($_POST['project_id']) ? $_POST['project_id'] : null;
+    $client_id = !empty($_POST['client_id']) ? $_POST['client_id'] : null;
+
+    if (!empty($_POST['edit_id'])) {
+        $stmt = $pdo->prepare("UPDATE hours SET project_id = :project_id, client_id = :client_id, date = :date, hours = :hours WHERE id = :id");
+        $stmt->execute([
+            'project_id' => $project_id,
+            'client_id' => $client_id,
+            'date' => $_POST['date'],
+            'hours' => $_POST['hours'],
+            'id' => $_POST['edit_id']
+        ]);
+        $_SESSION['success_message'] = "Uren succesvol bijgewerkt!";
+    } else {
+        $stmt = $pdo->prepare("INSERT INTO hours (project_id, client_id, date, hours) VALUES (:project_id, :client_id, :date, :hours)");
+        $stmt->execute([
+            'project_id' => $project_id,
+            'client_id' => $client_id,
+            'date' => $_POST['date'],
+            'hours' => $_POST['hours']
+        ]);
+        $_SESSION['success_message'] = "Uur succesvol toegevoegd!";
     }
     header("Location: ?page=$page");
     exit;
+}
 }
 
 // Handle delete actions with confirmation
@@ -261,701 +266,9 @@ foreach ($hours as $h) {
     <meta charset="UTF-8">
     <title>Dashboard - Zelfstandig Monteur</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-.sort-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  user-select: none;
-  font-size: 0.98em;
-  background: none;
-  border: none;
-  margin: 0;
-  padding: 0;
-}
-.sort-switch input[type="checkbox"] {
-  display: none;
-}
-.sort-switch .slider {
-  width: 32px;
-  height: 18px;
-  background: #23232a;
-  border-radius: 999px;
-  position: relative;
-  transition: background 0.18s;
-  box-shadow: 0 1.5px 6px #0001;
-  margin: 0;
-  display: inline-block;
-  vertical-align: middle;
-}
-.sort-switch .slider::before {
-  content: "";
-  position: absolute;
-  left: 3px;
-  top: 3px;
-  width: 12px;
-  height: 12px;
-  background: #fff;
-  border-radius: 50%;
-  transition: transform 0.18s cubic-bezier(.4,2.3,.3,1), background 0.18s;
-  box-shadow: 0 1px 3px #0002;
-}
-.sort-switch input[type="checkbox"]:checked + .slider::before {
-  transform: translateX(14px);
-  background: #fff;
-}
-.sort-switch input[type="checkbox"]:checked + .slider {
-  background: #2563eb;
-}
-.switch-label {
-  font-size: 0.97em;
-  font-weight: 600;
-  min-width: 36px;
-  text-align: center;
-  letter-spacing: 0.1px;
-  transition: color 0.15s;
-}
-.switch-label-left {
-  color: #2563eb;
-  margin-left: 0.5em;
-}
-.switch-label-right {
-  color: #888;
-  margin-left: 0.2em;
-}
-.sort-switch input[type="checkbox"]:checked ~ .switch-label-left {
-  color: #888;
-}
-.sort-switch input[type="checkbox"]:checked ~ .switch-label-right {
-  color: #2563eb;
-}
-        .sortable {
-
-    cursor: pointer;
-    user-select: none;
-}
-body.dark-mode .sort-switch .slider {
-  background: #353a45 !important;
-  box-shadow: 0 1.5px 6px #0003;
-}
-body.dark-mode .sort-switch input[type="checkbox"]:checked + .slider {
-  background: #60a5fa !important;
-}
-body.dark-mode .sort-switch .slider::before {
-  background: #fff !important;
-}
-body.dark-mode .switch-label-left,
-body.dark-mode .switch-label-right {
-  color: #a1a1aa !important;
-}
-body.dark-mode .sort-switch input[type="checkbox"]:checked ~ .switch-label-left {
-  color: #a1a1aa !important;
-}
-body.dark-mode .sort-switch input[type="checkbox"]:checked ~ .switch-label-right {
-  color: #60a5fa !important;
-}
-body.dark-mode .switch-label-left {
-  color: #60a5fa !important;
-}
-.sortable:hover {
-    text-decoration: underline;
-}
-        :root {
-            --primary: #2563eb;
-            --primary-dark: #1e40af;
-            --bg: #f6f8fa;
-            --sidebar-bg: #18181b;
-            --sidebar-active: #2563eb22;
-            --card-bg: #fff;
-            --border-radius: 12px;
-            --shadow: 0 4px 24px #0002;
-        }
-        body {
-            font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
-            margin: 0;
-            background: var(--bg);
-            color: #222;
-        }
-        .sidebar {
-            width: 220px;
-            background: #18181b;
-            color: #fff;
-            height: 100vh;
-            position: fixed;
-            box-shadow: 2px 0 16px #0001;
-            display: flex;
-            flex-direction: column;
-            border-top-right-radius: var(--border-radius);
-            border-bottom-right-radius: var(--border-radius);
-            overflow: hidden;
-        }
-        .sidebar h2 {
-            text-align: center;
-            padding: 2em 0 1em 0;
-            font-size: 1.5em;
-            letter-spacing: 1px;
-            font-weight: 700;
-            color: #fff;
-            background: none;
-            -webkit-background-clip: unset;
-            -webkit-text-fill-color: unset;
-            background-clip: unset;
-        }
-        .sidebar a {
-            color: #e5e7eb;
-            display: block;
-            padding: 1.1em 2em;
-            text-decoration: none;
-            border-left: 4px solid transparent;
-            font-size: 1.08em;
-            position: relative;
-            margin-bottom: 0.2em;
-            border-radius: 0 16px 16px 0;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-            transition: background 0.2s, border-color 0.2s, color 0.2s;
-        }
-        .sidebar a.active, .sidebar a:hover, .sidebar a:focus {
-            background: #23232a;
-            color: #fff;
-            border-left: 4px solid #2563eb;
-        }
-        .main {
-            margin-left: 260px;
-            padding: 3em 2em 2em 2em;
-            min-height: 100vh;
-        }
-        .card {
-            background: var(--card-bg);
-            padding: 2em 1.5em;
-            margin-bottom: 2em;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            border: 1px solid #e5e7eb;
-            animation: fadeInUp 0.6s cubic-bezier(.23,1.01,.32,1) both;
-            transition: box-shadow 0.3s, transform 0.3s;
-        }
-        .card:hover {
-            box-shadow: 0 12px 40px #2563eb33;
-            transform: translateY(-6px) scale(1.02);
-        }
-        .flex {
-            display: flex;
-            gap: 2em;
-            flex-wrap: wrap;
-        }
-        .flex > * {
-            flex: 1 1 220px;
-            min-width: 220px;
-        }
-        h1, h3 {
-            margin-top: 0;
-        }
-        label {
-            display: block;
-            margin-top: 1.2em;
-            font-weight: 500;
-            transition: color 0.3s;
-        }
-        input, select {
-            width: 100%;
-            padding: 0.7em 1em;
-            margin-top: 0.5em;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 1em;
-            background: #f9fafb;
-            transition: border 0.2s, box-shadow 0.2s, background 0.3s;
-        }
-        input:focus, select:focus {
-            background: #e8f0fe;
-            box-shadow: 0 0 0 2px #2563eb55;
-            outline: none;
-        }
-        button {
-            margin-top: 1.5em;
-            padding: 0.9em 2em;
-            background: var(--primary);
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1em;
-            font-weight: 600;
-            box-shadow: 0 2px 8px #2563eb22;
-            transition: background 0.2s, box-shadow 0.2s, transform 0.18s cubic-bezier(.23,1.01,.32,1);
-            position: relative;
-            overflow: hidden;
-            outline: none;
-        }
-        button:hover, button:focus {
-            background: var(--primary-dark);
-            box-shadow: 0 6px 24px #2563eb33;
-            transform: scale(1.04) translateY(-2px);
-        }
-        button:active {
-            transform: scale(0.98);
-        }
-        /* Ripple effect on click */
-        button:active::after {
-            content: "";
-            position: absolute;
-            left: 50%; top: 50%;
-            width: 200%; height: 200%;
-            background: rgba(37,99,235,0.15);
-            border-radius: 50%;
-            transform: translate(-50%, -50%) scale(0);
-            animation: ripple 0.5s linear;
-            pointer-events: none;
-        }
-        @keyframes ripple {
-            to { transform: translate(-50%, -50%) scale(1); opacity: 0; }
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1.5em;
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            overflow: hidden;
-            box-shadow: 0 2px 8px #0001;
-        }
-        th, td {
-            padding: 1em;
-            border-bottom: 1px solid #f1f1f1;
-            text-align: left;
-        }
-        th {
-            background: #f3f4f6;
-            font-weight: 600;
-            color: #222;
-        }
-        tr:last-child td {
-            border-bottom: none;
-        }
-        small {
-            color: #888;
-        }
-        .card form {
-        max-width: 500px;
-        margin: 0 auto;
-        }
-        .card input,
-        .card select {
-            max-width: 100%;
-            width: 100%;
-            box-sizing: border-box;
-            margin-left: 0;
-            margin-right: 0;
-            display: block;
-        }
-        @media (max-width: 900px) {
-            .flex {
-                flex-direction: column;
-            }
-            .main {
-                margin-left: 0;
-                padding: 1em;
-            }
-            .sidebar {
-                position: static;
-                width: 100%;
-                border-radius: 0;
-                flex-direction: row;
-                height: auto;
-                box-shadow: none;
-            }
-            .sidebar h2 {
-                display: none;
-            }
-            .sidebar a {
-                padding: 1em 0.7em;
-                font-size: 1em;
-                border-left: none;
-                border-bottom: 2px solid transparent;
-            }
-            .sidebar a:hover, .sidebar a:focus {
-                border-bottom: 2px solid var(--primary);
-                background: var(--sidebar-active);
-            }
-        }
-        tr {
-    animation: fadeInRow 0.5s cubic-bezier(.23,1.01,.32,1) both;
-    transition: background 0.2s, box-shadow 0.2s;
-}
-tr:hover {
-    background: #e8f0fe;
-    box-shadow: 0 2px 8px #2563eb22;
-    z-index: 1;
-    position: relative;
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-@keyframes fadeInRow {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-.popup-success {
-    position: fixed;
-    top: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #22c55e;
-    color: #fff;
-    padding: 1em 2em;
-    border-radius: 8px;
-    box-shadow: 0 4px 24px #22c55e33;
-    font-size: 1.1em;
-    z-index: 9999;
-    animation: popupFadeIn 0.5s, popupFadeOut 0.5s 2.5s forwards;
-}
-@keyframes popupFadeIn {
-    from { opacity: 0; transform: translateX(-50%) translateY(-20px);}
-    to   { opacity: 1; transform: translateX(-50%) translateY(0);}
-}
-@keyframes popupFadeOut {
-    to { opacity: 0; transform: translateX(-50%) translateY(-20px);}
-}
-#confirmModal {
-    display: none;
-    opacity: 0;
-    transition: opacity 0.2s;
-}
-#confirmModal[style*="display: flex"] {
-    display: flex !important;
-    opacity: 1;
-}
-.table-searchbar {
-    display: flex;
-    gap: 0.7em;
-    align-items: center;
-    margin-bottom: 1.5em;
-    max-width: 500px;
-}
-.table-searchbar input[type="text"] {
-    flex: 2 1 220px;
-    padding: 0.7em 1em;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 1em;
-    background: #f9fafb;
-    transition: box-shadow 0.2s, border 0.2s;
-}
-.table-searchbar input[type="text"]:focus {
-    box-shadow: 0 0 0 2px #2563eb55;
-    border-color: var(--primary);
-    outline: none;
-}
-.table-searchbar select {
-    flex: 1 1 120px;
-    padding: 0.7em 1em;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 1em;
-    background: #f9fafb;
-    transition: box-shadow 0.2s, border 0.2s;
-}
-.table-searchbar select:focus {
-    box-shadow: 0 0 0 2px #2563eb55;
-    border-color: var(--primary);
-    outline: none;
-}
-.checkbox-inline {
-    display: flex;
-    align-items: center;
-    gap: 0.6em;
-    margin-top: 1.2em;
-    font-weight: 500;
-}
-.checkbox-inline input[type="checkbox"] {
-    width: 1.1em;
-    height: 1.1em;
-    accent-color: var(--primary);
-    margin: 0;
-}
-.advanced-filters {
-    background: var(--card-bg);
-    padding: 1.5em 2em;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    margin-bottom: 2em;
-}
-.advanced-filters label {
-    margin-bottom: 0.5em;
-    font-weight: 500;
-    color: #333;
-}
-.advanced-filters input,
-.advanced-filters select {
-    padding: 0.8em 1.2em;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 1em;
-    background: #f9fafb;
-    transition: border 0.2s, box-shadow 0.2s;
-}
-.advanced-filters input:focus,
-.advanced-filters select:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px #2563eb55;
-    outline: none;
-}
-body.dark-mode {
-    background: #18181b !important;
-}
-
-body.dark-mode .main {
-    background: transparent !important;
-    /* No border, no shadow, keep it flat */
-}
-
-body.dark-mode .sidebar {
-    background: #15161a !important;
-    color: #fff !important;
-    border-right: 1px solid #23232a !important;
-}
-
-body.dark-mode .card {
-    background: #23232a !important;
-    color: #f3f4f6 !important;
-    border-color: #333 !important;
-}
-
-body.dark-mode table {
-    background: #23232a !important;
-    color: #f3f4f6 !important;
-}
-
-body.dark-mode th, body.dark-mode td {
-    background: #23232a !important;
-    color: #f3f4f6 !important;
-}
-
-body.dark-mode a {
-    color: #60a5fa !important;
-}
-body.dark-mode #darkModeToggle {
-    background: #a1a1aa !important;
-    color: #18181b !important;
-    box-shadow: 0 2px 12px #0003;
-    border: 1.5px solid #393a40;
-    font-weight: 700;
-    transition: background 0.2s, color 0.2s;
-}
-body.dark-mode #darkModeToggle:hover,
-body.dark-mode #darkModeToggle:focus {
-    background: #a1a1aa !important;
-    border-color: #2563eb;
-}
-
-body.dark-mode input, 
-body.dark-mode select, 
-body.dark-mode textarea {
-    background: #18181b !important;
-    color: #f3f4f6 !important;
-    border-color: #333 !important;
-}
-
-body.dark-mode .popup-success {
-    background: #166534 !important;
-    color: #fff !important;
-}
-body.dark-mode .advanced-filters label {
-    color: #f3f4f6 !important;
-}
-
-body.dark-mode .advanced-filters input,
-body.dark-mode .advanced-filters select {
-    color: #f3f4f6 !important;
-}
-
-/* Placeholder color for dark mode */
-body.dark-mode .advanced-filters input::placeholder {
-    color: #a1a1aa !important;
-    opacity: 1;
-}
-body.dark-mode h1 {
-    color: #f3f4f6 !important;
-}
-body.dark-mode .modal-content {
-    background: #23232a !important;
-    color: #f3f4f6 !important;
-    border-color: #333 !important;
-}
-.modal-content {
-    background: #fff !important;
-    color: #222 !important;
-    border: 1px solid #e5e7eb !important;
-}
-body.dark-mode a.delete-link,
-body.dark-mode a.delete-link:visited {
-    color: #ef4444 !important;
-    font-weight: 500;
-    text-decoration: underline !important;
-}
-body.dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-}
-body.dark-mode canvas {
-    background: #23232a !important;
-}
-
-/* Dashboard stat cards */
-.dashboard-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 3em 1em;
-    margin-bottom: 4em;
-}
-.stat-card-link {
-    display: block;
-    border-radius: 18px;
-    text-decoration: none;
-    height: 100%;
-    transition: box-shadow 0.25s, transform 0.18s cubic-bezier(.23,1.01,.32,1);
-}
-.stat-card {
-    min-height: 90px;
-    height: 100%;
-    background: #fff;
-    border-radius: 18px;
-    box-shadow: 0 4px 24px #0001;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 1em 1em;
-    transition: box-shadow 0.25s, transform 0.18s cubic-bezier(.23,1.01,.32,1), background 0.25s;
-    position: relative;
-    overflow: hidden;
-    will-change: transform, box-shadow;
-}
-.stat-card-value {
-    font-size: 2.2em;
-    font-weight: 700;
-    line-height: 1;
-    margin-bottom: 0.2em;
-}
-.stat-card-label {
-    font-size: 1.1em;
-    opacity: .85;
-    margin-bottom: 0.7em;
-}
-.stat-card-badges {
-    display: flex;
-    gap: 0.5em;
-    flex-wrap: wrap;
-}
-.stat-badge {
-    border-radius: 6px;
-    padding: 2px 10px 2px 8px;
-    font-size: .98em;
-    font-weight: 600;
-    background: #f3f4f6;
-    color: #222;
-    transition: background 0.2s, color 0.2s;
-}
-.stat-badge-green {
-    background: #22c55e22;
-    color: #22c55e;
-}
-.stat-badge-red {
-    background: #ef444422;
-    color: #ef4444;
-}
-.stat-badge-dark {
-    background: #18181b22;
-    color: #18181b;
-}
-.stat-card-blue {
-    color: #2563eb;
-}
-.stat-card-green {
-    color: #22c55e;
-}
-.stat-card-dark {
-    color: #18181b;
-}
-.stat-card-white {
-    color: #222;
-}
-.stat-card-link .stat-card {
-    cursor: pointer;
-    animation: cardFadeIn 0.7s cubic-bezier(.23,1.01,.32,1);
-}
-@keyframes cardFadeIn {
-    from { opacity: 0; transform: translateY(30px) scale(0.97);}
-    to   { opacity: 1; transform: none;}
-}
-.stat-card-link:hover .stat-card,
-.stat-card-link:focus .stat-card {
-    box-shadow: 0 12px 40px #2563eb33, 0 2px 8px #22c55e22;
-    transform: translateY(-6px) scale(1.04) rotate(-0.5deg);
-    background: #f3f6ff;
-}
-.stat-card-link:active .stat-card {
-    transform: scale(0.98);
-    box-shadow: 0 2px 8px #2563eb22;
-}
-/* Dark mode for stat cards */
-body.dark-mode .stat-card {
-    background: #23232a !important;
-    color: #f3f4f6 !important;
-    box-shadow: 0 4px 24px #0008;
-    border: 1px solid #333;
-}
-body.dark-mode .stat-card-blue {
-    color: #60a5fa !important;
-}
-body.dark-mode .stat-card-green {
-    color: #4ade80 !important;
-}
-body.dark-mode .stat-card-dark {
-    color: #f3f4f6 !important;
-}
-body.dark-mode .stat-card-white {
-    color: #f3f4f6 !important;
-}
-
-/* Dark mode for stat badges */
-body.dark-mode .stat-badge {
-    background: #18181b !important;
-    color: #e5e7eb !important;
-}
-body.dark-mode .stat-badge-green {
-    background: #22c55e33 !important;
-    color: #4ade80 !important;
-}
-body.dark-mode .stat-badge-red {
-    background: #ef444433 !important;
-    color: #fca5a5 !important;
-}
-body.dark-mode .stat-badge-dark {
-    background: #18181b !important;
-    color: #e5e7eb !important;
-}
-body.dark-mode .stat-badge-blue {
-    background: #2563eb33 !important;
-    color: #60a5fa !important;
-}
-</style>
+    <link rel="stylesheet" href="dashboard.css">
 </head>
-<body>
+<body data-page="<?= $page ?>">
 <?php if (!empty($_SESSION['success_message'])): ?>
     <div class="popup-success"><?= h($_SESSION['success_message']) ?></div>
     <?php unset($_SESSION['success_message']); ?>
@@ -1010,7 +323,7 @@ body.dark-mode .stat-badge-blue {
         <div style="display:flex;align-items:center;justify-content:space-between;">
             <h3 style="margin:0;">Projecten overzicht</h3>
         </div>
-        <table>
+<table id="dashboardProjectsTable">
             <tr>
                 <th>Project</th>
                 <th>Klant</th>
@@ -1202,12 +515,13 @@ body.dark-mode .stat-badge-blue {
             </div>
             <div style="display:flex; flex-direction:column; min-width:120px;">
                 <label for="advCol" style="margin-bottom:0.2em;">Kolom</label>
-                <select id="advCol">
-                    <option value="all">Alle</option>
-                    <option value="0">Factuurnr</option>
-                    <option value="1">Klant</option>
-                    <option value="2">Bedrag</option>
-                </select>
+   <select id="advCol">
+    <option value="all">Alle</option>
+    <option value="0">Factuurnr</option>
+    <option value="1">Klant</option>
+    <option value="2">Project</option>
+    <option value="3">Bedrag</option>
+</select>
             </div>
             <div style="display:flex; flex-direction:column; min-width:120px;">
                 <label for="advStatus" style="margin-bottom:0.2em;">Status</label>
@@ -1228,7 +542,7 @@ body.dark-mode .stat-badge-blue {
         </div>
     </div>
 
-            <table>
+<table id="invoicesTable">
                 <tr>
     <th><span class="sortable" data-col="0">Factuurnr</span></th>
     <th><span class="sortable" data-col="1">Klant</span></th>
@@ -1276,103 +590,139 @@ body.dark-mode .stat-badge-blue {
 </tr>
 <?php endforeach; ?>
             </table>
-        <?php elseif ($page === 'hours'): ?>
-            <h1>Urenregistratie</h1>
-            <?php if (isset($_GET['action'], $_GET['id']) && $_GET['action'] === 'edit' && is_numeric($_GET['id'])):
-                $editHour = $pdo->prepare("SELECT * FROM hours WHERE id = ?");
-                $editHour->execute([$_GET['id']]);
-                $hour = $editHour->fetch();
-            ?>
-                <form class="card" method="post" action="">
-                    <h3>Uur bewerken</h3>
-                    <input type="hidden" name="edit_id" value="<?= $hour['id'] ?>">
-                    <label>Project
-                        <select name="project_id">
-                            <?php foreach ($projects as $p): ?>
-                                <option value="<?= $p['id'] ?>" <?= $p['id'] == $hour['project_id'] ? 'selected' : '' ?>>
-                                    <?= h($p['name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
-                    <label>Datum
-                        <input type="date" name="date" value="<?= h($hour['date']) ?>" required>
-                    </label>
-                    <label>Uren
-                        <input type="number" name="hours" step="0.25" value="<?= number_format((float)$hour['hours'], 2, '.', '') ?>" required>
-                    </label>
-                    <button type="submit">Opslaan</button>
-                    <a href="?page=hours" style="margin-left:1em;">Annuleren</a>
-                </form>
-            <?php else: ?>
-                <form class="card" method="post" action="">
-                    <h3>Uur toevoegen</h3>
-                    <label>Project
-                        <select name="project_id">
-                            <?php foreach ($projects as $p): ?>
-                                <option value="<?= $p['id'] ?>"><?= h($p['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
-                    <label>Datum
-                        <input type="date" name="date" required>
-                    </label>
-                    <label>Uren
-                        <input type="number" name="hours" step="0.25" required>
-                    </label>
-                    <button type="submit">Toevoegen</button>
-                </form>
-            <?php endif; ?>
-            <div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
-        <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
-            <div style="display:flex; flex-direction:column; min-width:160px;">
-                <label for="advSearch" style="margin-bottom:0.2em;">Zoeken</label>
-                <input id="advSearch" type="text" placeholder="..." autocomplete="off">
-            </div>
-            <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advCol" style="margin-bottom:0.2em;">Kolom</label>
-                <select id="advCol">
-                    <option value="all">Alle</option>
-                    <option value="0">Project</option>
-                    <option value="2">Uren</option>
+            <?php elseif ($page === 'hours'): ?>
+    <h1>Urenregistratie</h1>
+    <?php if (isset($_GET['action'], $_GET['id']) && $_GET['action'] === 'edit' && is_numeric($_GET['id'])):
+        $editHour = $pdo->prepare("SELECT * FROM hours WHERE id = ?");
+        $editHour->execute([$_GET['id']]);
+        $hour = $editHour->fetch();
+    ?>
+        <form class="card" method="post" action="">
+            <h3>Uur bewerken</h3>
+            <input type="hidden" name="edit_id" value="<?= $hour['id'] ?>">
+            <label>Project
+                <select name="project_id">
+                    <option value="">-- Geen project --</option>
+                    <?php foreach ($projects as $p): ?>
+                        <option value="<?= $p['id'] ?>" <?= $p['id'] == $hour['project_id'] ? 'selected' : '' ?>>
+                            <?= h($p['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
-            </div>
-            <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advDateFrom" style="margin-bottom:0.2em;">Datum vanaf</label>
-                <input id="advDateFrom" type="date">
-            </div>
-            <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advDateTo" style="margin-bottom:0.2em;">Datum t/m</label>
-                <input id="advDateTo" type="date">
-            </div>
+            </label>
+            <label>Klant
+                <select name="client_id">
+                    <option value="">-- Geen klant --</option>
+                    <?php foreach ($clients as $c): ?>
+                        <option value="<?= $c['id'] ?>" <?= $c['id'] == $hour['client_id'] ? 'selected' : '' ?>>
+                            <?= h($c['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label>Datum
+                <input type="date" name="date" value="<?= h($hour['date']) ?>" required>
+            </label>
+            <label>Uren
+                <input type="number" name="hours" step="0.25" value="<?= number_format((float)$hour['hours'], 2, '.', '') ?>" required>
+            </label>
+            <button type="submit">Opslaan</button>
+            <a href="?page=hours" style="margin-left:1em;">Annuleren</a>
+        </form>
+    <?php else: ?>
+        <form class="card" method="post" action="">
+            <h3>Uur toevoegen</h3>
+            <label>Project
+                <select name="project_id">
+                    <option value="">-- Geen project --</option>
+                    <?php foreach ($projects as $p): ?>
+                        <option value="<?= $p['id'] ?>"><?= h($p['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label>Klant
+                <select name="client_id">
+                    <option value="">-- Geen klant --</option>
+                    <?php foreach ($clients as $c): ?>
+                        <option value="<?= $c['id'] ?>"><?= h($c['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label>Datum
+                <input type="date" name="date" required>
+            </label>
+            <label>Uren
+                <input type="number" name="hours" step="0.25" required>
+            </label>
+            <button type="submit">Toevoegen</button>
+        </form>
+    <?php endif; ?>
+<div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
+    <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
+        <div style="display:flex; flex-direction:column; min-width:160px;">
+            <label for="advSearch" style="margin-bottom:0.2em;">Zoeken</label>
+            <input id="advSearch" type="text" placeholder="..." autocomplete="off">
+        </div>
+        <div style="display:flex; flex-direction:column; min-width:120px;">
+            <label for="advCol" style="margin-bottom:0.2em;">Kolom</label>
+            <select id="advCol">
+                <option value="all">Alle</option>
+                <option value="0">Project</option>
+                <option value="1">Klant</option>
+                <option value="2">Uren</option>
+            </select>
+        </div>
+        <div style="display:flex; flex-direction:column; min-width:120px;">
+            <label for="advDateFrom" style="margin-bottom:0.2em;">Datum vanaf</label>
+            <input id="advDateFrom" type="date">
+        </div>
+        <div style="display:flex; flex-direction:column; min-width:120px;">
+            <label for="advDateTo" style="margin-bottom:0.2em;">Datum t/m</label>
+            <input id="advDateTo" type="date">
         </div>
     </div>
-            <table>
+</div>
+<table id="hoursTable">
 <tr>
     <th><span class="sortable" data-col="0">Project</span></th>
-    <th><span class="sortable" data-col="1">Datum</span></th>
-    <th><span class="sortable" data-col="2">Uren</span></th>
-    <th></th><th colspan="1" style="text-align:right;">
-  <label class="sort-switch">
-    <input type="checkbox" class="sort-order-toggle" checked>
-    <span class="slider"></span>
-    <span class="switch-label switch-label-left">Nieuwst</span>
-    <span class="switch-label switch-label-right">Oudst</span>
-  </label>
-</th>
+    <th><span class="sortable" data-col="1">Klant</span></th>
+    <th><span class="sortable" data-col="2">Datum</span></th>
+    <th><span class="sortable" data-col="3">Uren</span></th>
+    <th></th>
+    <th colspan="1" style="text-align:right;">
+      <label class="sort-switch">
+        <input type="checkbox" class="sort-order-toggle" checked>
+        <span class="slider"></span>
+        <span class="switch-label switch-label-left">Nieuwst</span>
+        <span class="switch-label switch-label-right">Oudst</span>
+      </label>
+    </th>
 </tr>
-                <?php foreach ($hours as $h): ?>
-                    <tr>
-                        <td><?= h($projectsById[$h['project_id']]['name'] ?? 'Onbekend') ?></td>
-                        <td><?= h($h['date']) ?></td>
-                        <td><?= h($h['hours']) ?></td>
-                        <td><a href="?page=hours&action=edit&id=<?= $h['id'] ?>">Bewerken</a></td>
-                        <td>
-                            <a href="#" class="delete-link" data-href="?page=hours&action=delete&id=<?= $h['id'] ?>" style="color:red;">Verwijderen</a>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </table>
+<?php foreach ($hours as $h): ?>
+    <tr>
+        <td><?= h($projectsById[$h['project_id']]['name'] ?? 'Onbekend') ?></td>
+        <td>
+            <?php
+                // Show client from project if project is set, otherwise from client_id
+                if (!empty($h['project_id']) && isset($projectsById[$h['project_id']])) {
+                    $clientId = $projectsById[$h['project_id']]['client_id'] ?? null;
+                    echo h($clientsById[$clientId]['name'] ?? 'Onbekend');
+                } elseif (!empty($h['client_id'])) {
+                    echo h($clientsById[$h['client_id']]['name'] ?? 'Onbekend');
+                } else {
+                    echo 'Onbekend';
+                }
+            ?>
+        </td>
+        <td><?= h($h['date']) ?></td>
+        <td><?= h($h['hours']) ?></td>
+        <td><a href="?page=hours&action=edit&id=<?= $h['id'] ?>">Bewerken</a></td>
+        <td>
+            <a href="#" class="delete-link" data-href="?page=hours&action=delete&id=<?= $h['id'] ?>" style="color:red;">Verwijderen</a>
+        </td>
+    </tr>
+<?php endforeach; ?>
+</table>
         <?php elseif ($page === 'clients'): ?>
             <h1>Klanten</h1>
             <?php if (isset($_GET['action'], $_GET['id']) && $_GET['action'] === 'edit' && is_numeric($_GET['id'])):
@@ -1413,7 +763,7 @@ body.dark-mode .stat-badge-blue {
             </div>
         </div>
     </div>
-            <table>
+<table id="clientsTable">
              <tr>
     <th><span class="sortable" data-col="0">Naam</span></th>
     <th></th><th colspan="1" style="text-align:right;">
@@ -1488,23 +838,32 @@ body.dark-mode .stat-badge-blue {
                     <button type="submit">Toevoegen</button>
                 </form>
             <?php endif; ?>
-            <div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
-        <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
-            <div style="display:flex; flex-direction:column; min-width:160px;">
-                <label for="advSearch" style="margin-bottom:0.2em;">Zoeken</label>
-                <input id="advSearch" type="text" placeholder="..." autocomplete="off">
-            </div>
-            <div style="display:flex; flex-direction:column; min-width:120px;">
-                <label for="advCol" style="margin-bottom:0.2em;">Kolom</label>
-                <select id="advCol">
-                    <option value="all">Alle</option>
-                    <option value="0">Project</option>
-                    <option value="1">Klant</option>
-                </select>
-            </div>
+<div class="advanced-filters card" style="margin-bottom:2em; padding:1em 1.5em;">
+    <div style="display:flex; gap:1.5em; flex-wrap:wrap;">
+        <div style="display:flex; flex-direction:column; min-width:160px;">
+            <label for="advSearch" style="margin-bottom:0.2em;">Zoeken</label>
+            <input id="advSearch" type="text" placeholder="..." autocomplete="off">
+        </div>
+        <div style="display:flex; flex-direction:column; min-width:120px;">
+            <label for="advCol" style="margin-bottom:0.2em;">Kolom</label>
+            <select id="advCol">
+                <option value="all">Alle</option>
+                <option value="0">Project</option>
+                <option value="1">Klant</option>
+                <option value="2">Status</option>
+            </select>
+        </div>
+        <div style="display:flex; flex-direction:column; min-width:120px;">
+            <label for="advStatus" style="margin-bottom:0.2em;">Status</label>
+            <select id="advStatus">
+                <option value="">Alle</option>
+                <option value="ongoing">Lopend</option>
+                <option value="finished">Afgerond</option>
+            </select>
         </div>
     </div>
-            <table>
+</div>
+<table id="projectsTable">
                 <tr>
     <th><span class="sortable" data-col="0">Project</span></th>
     <th><span class="sortable" data-col="1">Klant</span></th>
@@ -1572,370 +931,6 @@ body.dark-mode .stat-badge-blue {
   </div>
 </div>
 <button id="darkModeToggle" style="position:absolute;top:18px;right:18px;padding:0.5em 1.2em;border-radius:6px;border:none;background:#222;color:#fff;cursor:pointer;font-weight:600;">🌙 Donker</button>
-
-<script>
-// Toggle dark mode
-document.getElementById('darkModeToggle').onclick = function() {
-    document.body.classList.toggle('dark-mode');
-    if(document.body.classList.contains('dark-mode')) {
-        localStorage.setItem('darkMode', '1');
-        this.innerHTML = '☀️ Licht';
-        this.style.color = '#f3f4f6';
-        this.style.background = '#18181b';
-    } else {
-        localStorage.removeItem('darkMode');
-        this.innerHTML = '🌙 Donker';
-        this.style.color = '#f3f4f6';
-        this.style.background = '#23232a';
-    }
-};
-// On load, apply dark mode if set
-if(localStorage.getItem('darkMode')) {
-    document.body.classList.add('dark-mode');
-    var btn = document.getElementById('darkModeToggle');
-    btn.innerHTML = '☀️ Licht';
-    btn.style.color = '#f3f4f6';
-    btn.style.background = '#18181b';
-}
-</script>
-
-<style>
-body.dark-mode {
-    background: #18181b !important;
-}
-
-body.dark-mode .main {
-    background: transparent !important;
-    /* No border, no shadow, keep it flat */
-}
-
-body.dark-mode .sidebar {
-    background: #15161a !important;
-    color: #fff !important;
-    border-right: 1px solid #23232a !important;
-}
-
-body.dark-mode .card {
-    background: #23232a !important;
-    color: #f3f4f6 !important;
-    border-color: #333 !important;
-}
-
-body.dark-mode table {
-    background: #23232a !important;
-    color: #f3f4f6 !important;
-}
-
-body.dark-mode th, body.dark-mode td {
-    background: #23232a !important;
-    color: #f3f4f6 !important;
-}
-
-body.dark-mode a {
-    color: #60a5fa !important;
-}
-
-body.dark-mode input, 
-body.dark-mode select, 
-body.dark-mode textarea {
-    background: #18181b !important;
-    color: #f3f4f6 !important;
-    border-color: #333 !important;
-}
-
-body.dark-mode .popup-success {
-    background: #166534 !important;
-    color: #fff !important;
-}
-body.dark-mode .advanced-filters label {
-    color: #f3f4f6 !important;
-}
-
-body.dark-mode .advanced-filters input,
-body.dark-mode .advanced-filters select {
-    color: #f3f4f6 !important;
-}
-
-/* Placeholder color for dark mode */
-body.dark-mode .advanced-filters input::placeholder {
-    color: #a1a1aa !important;
-    opacity: 1;
-}
-body.dark-mode h1 {
-    color: #f3f4f6 !important;
-}
-body.dark-mode .modal-content {
-    background: #23232a !important;
-    color: #f3f4f6 !important;
-    border-color: #333 !important;
-}
-body.dark-mode a.delete-link,
-body.dark-mode a.delete-link:visited {
-    color: #ef4444 !important;
-    font-weight: 500;
-    text-decoration: underline !important;
-}
-body.dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-}
-body.dark-mode canvas {
-    background: #23232a !important;
-}
-</style>
-<script>
-document.querySelectorAll('.delete-link').forEach(function(link) {
-    link.addEventListener('click', function(e) {
-        e.preventDefault();
-        var modal = document.getElementById('confirmModal');
-        modal.style.display = 'flex';
-        modal.dataset.href = this.dataset.href;
-    });
-});
-document.getElementById('confirmYes').onclick = function() {
-    var modal = document.getElementById('confirmModal');
-    window.location.href = modal.dataset.href;
-};
-document.getElementById('confirmNo').onclick = function() {
-    document.getElementById('confirmModal').style.display = 'none';
-};
-document.getElementById('confirmNo').onclick = function() {
-    document.getElementById('confirmModal').style.display = 'none';
-};
-// Remove these if you don't use the old filter bar anymore:
-// document.getElementById('tableSearch').addEventListener('input', filterTable);
-// document.getElementById('tableFilter').addEventListener('change', filterTable);
-// document.getElementById('statusFilter').addEventListener('change', filterTable);
-
-
-// Only add listeners if the element exists
-if (document.getElementById('advSearch')) {
-    document.getElementById('advSearch').addEventListener('input', filterTable);
-}
-// document.getElementById('tableFilter').addEventListener('change', filterTable);
-// document.getElementById('statusFilter').addEventListener('change', filterTable);
-
-
-// Only add listeners if the element exists
-if (document.getElementById('advSearch')) {
-    document.getElementById('advSearch').addEventListener('input', filterTable);
-}
-if (document.getElementById('advCol')) {
-    document.getElementById('advCol').addEventListener('change', filterTable);
-}
-if (document.getElementById('advStatus')) {
-    document.getElementById('advStatus').addEventListener('change', filterTable);
-}
-if (document.getElementById('advDateFrom')) {
-    document.getElementById('advDateFrom').addEventListener('change', filterTable);
-}
-if (document.getElementById('advDateTo')) {
-    document.getElementById('advDateTo').addEventListener('change', filterTable);
-}
-
-function filterTable() {
-    var search = document.getElementById('advSearch').value.toLowerCase();
-    var advCol = document.getElementById('advCol').value;
-    var status = document.getElementById('advStatus') ? document.getElementById('advStatus').value : '';
-    var dateFrom = document.getElementById('advDateFrom').value;
-    var dateTo = document.getElementById('advDateTo').value;
-    var table = document.querySelector('.main table');
-    if (!table) return;
-    var rows = table.querySelectorAll('tbody tr, tr');
-    rows.forEach(function(row) {
-        if (row.querySelectorAll('th').length) return; // skip header
-        var cells = row.querySelectorAll('td');
-        var show = true;
-
-        // Search filter with column selection
-        if (search) {
-            if (advCol === 'all') {
-                if (row.textContent.toLowerCase().indexOf(search) === -1) show = false;
-            } else {
-                var colIdx = parseInt(advCol, 10);
-                if (!cells[colIdx] || cells[colIdx].textContent.toLowerCase().indexOf(search) === -1) show = false;
-            }
-        }
-        // Status filter (only for invoices)
-        if (document.getElementById('advStatus') && status) {
-            var statusText = cells[4] ? cells[4].textContent.toLowerCase() : '';
-            if (status === 'paid' && statusText.indexOf('betaald') === -1) show = false;
-            if (status === 'unpaid' && statusText.indexOf('open') === -1) show = false;
-        }
-        // Date filters (try to match date column)
-        // For invoices: date is col 3, for hours: col 1, for projects/clients: skip
-        var dateCol = 3;
-        if (<?php echo json_encode($page); ?> === 'hours') dateCol = 1;
-        if (dateFrom && cells[dateCol]) {
-            var rowDate = cells[dateCol].textContent.trim();
-            if (rowDate && rowDate < dateFrom) show = false;
-        }
-        if (dateTo && cells[dateCol]) {
-            var rowDate = cells[dateCol].textContent.trim();
-            if (rowDate && rowDate > dateTo) show = false;
-        }
-        row.style.display = show ? '' : 'none';
-    });
-}
-</script>
-<script>
-    var allProjects = <?= json_encode($projects) ?>;
-    var selectedProjectId = <?= isset($invoice['project_id']) ? json_encode($invoice['project_id']) : 'null' ?>;
-
-
-function updateProjectOptions() {
-    var clientId = document.getElementById('clientSelect').value;
-    var projectSelect = document.getElementById('projectSelect');
-    var current = selectedProjectId;
-    projectSelect.innerHTML = '<option value="">-- Kies project --</option>';
-    allProjects.forEach(function(proj) {
-        if (String(proj.client_id) === String(clientId)) {
-            var opt = document.createElement('option');
-            opt.value = proj.id;
-            opt.textContent = proj.name;
-            if (current && proj.id == current) {
-                opt.selected = true;
-            }
-            projectSelect.appendChild(opt);
-        }
-    });
-}
-
-if (document.getElementById('clientSelect') && document.getElementById('projectSelect')) {
-    document.getElementById('clientSelect').addEventListener('change', function() {
-        selectedProjectId = null;
-        updateProjectOptions();
-    });
-    updateProjectOptions();
-}
-</script>
-<script>
-document.querySelectorAll('form.card').forEach(function(form) {
-    form.addEventListener('submit', function(e) {
-        // Only show confirmation if this is an edit form (has edit_id)
-        if (form.querySelector('input[name="edit_id"]')) {
-            e.preventDefault();
-            var modal = document.getElementById('saveConfirmModal');
-            modal.style.display = 'flex';
-
-            document.getElementById('saveConfirmYes').onclick = function() {
-                modal.style.display = 'none';
-                form.submit();
-            };
-            document.getElementById('saveConfirmNo').onclick = function() {
-                modal.style.display = 'none';
-            };
-        }
-        // If not editing, allow normal submit (no modal)
-    });
-});
-</script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-// Data from PHP
-const monthsLabels = <?= json_encode(array_map(fn($m) => date('M Y', strtotime($m.'-01')), array_keys($months))) ?>;
-const monthsData = <?= json_encode(array_values($months)) ?>;
-const projectStatusLabels = ["Lopend", "Afgerond"];
-const projectStatusData = [<?= count($ongoingProjects) ?>, <?= count($finishedProjects) ?>];
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Uren per maand bar chart
-    if (document.getElementById('hoursPerMonthChart')) {
-        new Chart(document.getElementById('hoursPerMonthChart').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: monthsLabels,
-                datasets: [{
-                    label: 'Uren',
-                    data: monthsData,
-                    backgroundColor: '#2563eb'
-                }]
-            },
-            options: {
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, ticks: { color: '#888' } },
-                    x: { ticks: { color: '#888' } }
-                }
-            }
-        });
-    }
-
-    // Projectstatus doughnut chart
-    if (document.getElementById('projectStatusChart')) {
-        new Chart(document.getElementById('projectStatusChart').getContext('2d'), {
-            type: 'doughnut',
-            data: {
-                labels: projectStatusLabels,
-                datasets: [{
-                    data: projectStatusData,
-                    backgroundColor: ['#2563eb', '#22c55e']
-                }]
-            },
-            options: {
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: '#888',
-                            font: { size: 14 },
-                            boxWidth: 14,   // Make the color box smaller
-                            boxHeight: 10,  // Make the color box shorter
-                            padding: 8      // Reduce space between legend items
-                        }
-                    }
-                }
-            }
-        });
-    }
-});
-</script>
-<script>
-document.querySelectorAll('.sortable').forEach(function(header) {
-    header.style.cursor = 'pointer';
-    header.onclick = function() {
-        var table = header.closest('table');
-        var col = parseInt(header.dataset.col, 10);
-        var rows = Array.from(table.querySelectorAll('tr')).slice(1); // skip header
-        var asc = header.dataset.asc === "1" ? false : true;
-        rows.sort(function(a, b) {
-            var aText = a.children[col]?.textContent.trim() || '';
-            var bText = b.children[col]?.textContent.trim() || '';
-            // Try to compare as numbers, fallback to string
-            var aNum = parseFloat(aText.replace(/[^\d.-]/g, ''));
-            var bNum = parseFloat(bText.replace(/[^\d.-]/g, ''));
-            if (!isNaN(aNum) && !isNaN(bNum)) {
-                return asc ? aNum - bNum : bNum - aNum;
-            }
-            return asc ? aText.localeCompare(bText) : bText.localeCompare(aText);
-        });
-        rows.forEach(function(row) { table.appendChild(row); });
-        // Toggle sort direction
-        header.dataset.asc = asc ? "1" : "0";
-    };
-});
-</script>
-<script>
-document.querySelectorAll('.sort-order-toggle').forEach(function(toggle) {
-  toggle.addEventListener('change', function() {
-    var th = toggle.closest('th');
-    var table = th.closest('table');
-    var rows = Array.from(table.querySelectorAll('tr')).slice(1); // skip header
-
-    // Find the column index for the ID (adjust if needed)
-    var idCol = 0; // Change this if your ID is not the first column
-
-    rows.sort(function(a, b) {
-      var aId = parseInt(a.children[idCol].textContent.replace(/\D/g, ''), 10);
-      var bId = parseInt(b.children[idCol].textContent.replace(/\D/g, ''), 10);
-      if (toggle.checked) {
-        return bId - aId; // Nieuwst
-      } else {
-        return aId - bId; // Oudst
-      }
-    });
-
-    rows.forEach(function(row) { table.appendChild(row); });
-  });
-});
-</script>
+<script src="dashboard.js"></script>
 </body>
 </html>
