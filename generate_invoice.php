@@ -42,19 +42,13 @@ foreach ($items as $item) {
 
 // Calculate totals
 $subtotal = 0;
-foreach ($items as &$item) {
+foreach ($items as $item) {
     $discount = isset($item['discount']) ? $item['discount'] : 0;
     $item['totaal'] = $item['quantity'] * $item['unit_price'] * (1 - $discount / 100);
     $subtotal += $item['totaal'];
 }
 $btw = $subtotal * 0.21;
 $total = $subtotal + $btw;
-$invoice_total = $invoice['amount'];
-
-// Combine invoice amount and items total
-$combined_total = $invoice['amount'] + $items_total;
-$btw = $combined_total * 0.21;
-$total_to_pay = $combined_total + $btw;
 
 // HTML template
 $html = '
@@ -94,14 +88,14 @@ body { font-family: Arial, sans-serif; font-size: 11pt; }
 
 <table class="header-table">
     <tr>
-        <th style="width:19%;">Factuurdatum</th>
-        <th style="width:19%;">Reparatiedatum</th>
-        <th style="width:22%;">Factuurnummer</th>
-        <th style="width:20%;">Kenteken</th>
-        <th style="width:20%;">Merk</th>
+        <th style="width:23%;">Factuurdatum</th>
+        <th style="width:25%;">Reparatiedatum</th>
+        <th style="width:24%;">Factuurnummer</th>
+        <th style="width:25%;">Kenteken</th>
+        <th style="width:25%;">Merk</th>
     </tr>
     <tr>
-        <td>' . htmlspecialchars($invoice['date']) . '</td>
+        <td>' . htmlspecialchars($invoice['date'] ?? '-') . '</td>
         <td>' . htmlspecialchars($invoice['repair_date'] ?? '-') . '</td>
         <td>' . htmlspecialchars($invoice['number'] ?? '-') . '</td>
         <td>' . htmlspecialchars($invoice['license_plate'] ?? '-') . '</td>
@@ -124,7 +118,7 @@ foreach ($items as $item) {
         <td>' . nl2br(htmlspecialchars($item['description'])) . '</td>
         <td>' . $item['quantity'] . '</td>
         <td>€ ' . number_format($item['unit_price'], 2, ',', '.') . '</td>
-        <td>' . $discount . '</td>
+        <td>' . intval($discount) . '%</td>
         <td>€ ' . number_format($totaal, 2, ',', '.') . '</td>
     </tr>';
 }
@@ -136,7 +130,7 @@ $html .= '</table>
 <table class="totals-table">
     <tr>
         <td colspan="4">Totaal:</td>
-        <td>€ ' . number_format($combined_total, 2, ',', '.') . '</td>
+        <td>€ ' . number_format($subtotal, 2, ',', '.') . '</td>
     </tr>
     <tr>
         <td colspan="4">BTW 21%:</td>
@@ -144,7 +138,7 @@ $html .= '</table>
     </tr>
     <tr>
         <td colspan="4"><strong>Totaal te betalen:</strong></td>
-        <td><strong>€ ' . number_format($total_to_pay, 2, ',', '.') . '</strong></td>
+        <td><strong>€ ' . number_format($total, 2, ',', '.') . '</strong></td>
     </tr>
 </table>
 ';

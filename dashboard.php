@@ -67,18 +67,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     // Invoices
-if ($page === 'invoices' && !empty($_POST['client_id']) && !empty($_POST['amount'])) {
+if ($page === 'invoices' && !empty($_POST['client_id'])) {
     $paid = isset($_POST['paid']) ? 1 : 0;
     $repair_date = $_POST['repair_date'] ?? null;
     $license_plate = $_POST['license_plate'] ?? '';
     $car_model = $_POST['car_model'] ?? '';
+    // Calculate total amount from lines
+    $amount = 0;
+    if (isset($_POST['lines']) && is_array($_POST['lines'])) {
+        foreach ($_POST['lines'] as $line) {
+            if (!empty($line['omschrijving']) && isset($line['aantal']) && isset($line['stuksprijs'])) {
+                $qty = floatval($line['aantal']);
+                $price = floatval($line['stuksprijs']);
+                $discount = isset($line['korting']) ? floatval($line['korting']) : 0;
+                $lineTotal = $qty * $price * (1 - $discount / 100);
+                $amount += $lineTotal;
+            }
+        }
+    }
     if (!empty($_POST['edit_id'])) {
         $stmt = $pdo->prepare("UPDATE invoices SET client_id = :client_id, project_id = :project_id, amount = :amount, paid = :paid, repair_date = :repair_date, license_plate = :license_plate, car_model = :car_model, number = :number WHERE id = :id");
         $stmt->execute([
             'client_id' => $_POST['client_id'],
             'project_id' => $_POST['project_id'],
-            'amount' => $_POST['amount'],
-            'number' => $_POST['number'], // Use the posted number for edit
+            'amount' => $amount,
+            'number' => $_POST['number'],
             'paid' => $paid,
             'repair_date' => $repair_date,
             'license_plate' => $license_plate,
@@ -92,7 +105,7 @@ if ($page === 'invoices' && !empty($_POST['client_id']) && !empty($_POST['amount
         $stmt->execute([
             'client_id' => $_POST['client_id'],
             'project_id' => $_POST['project_id'],
-            'amount' => $_POST['amount'],
+            'amount' => $amount,
             'number' => $factuurnummer,
             'paid' => $paid,
             'repair_date' => $repair_date,
@@ -167,6 +180,8 @@ if ($page === 'hours' && !empty($_POST['date']) && !empty($_POST['hours'])) {
         ]);
         $_SESSION['success_message'] = "Uur succesvol toegevoegd!";
     }
+    // Refresh the hours data after update
+$hours = $pdo->query("SELECT * FROM hours")->fetchAll(PDO::FETCH_ASSOC);
     header("Location: ?page=$page");
     exit;
 }
@@ -189,6 +204,10 @@ if (isset($_GET['action'], $_GET['id']) && $_GET['action'] === 'delete' && is_nu
         exit;
     }
     if ($page === 'invoices') {
+        // First delete related invoice_items
+        $stmt = $pdo->prepare("DELETE FROM invoice_items WHERE invoice_id = ?");
+        $stmt->execute([$_GET['id']]);
+        // Then delete the invoice
         $stmt = $pdo->prepare("DELETE FROM invoices WHERE id = ?");
         $stmt->execute([$_GET['id']]);
         $_SESSION['success_message'] = "Factuur succesvol verwijderd!";
@@ -304,7 +323,7 @@ foreach ($hours as $h) {
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard - Zelfstandig Monteur</title>
+    <title>Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="dashboard.css">
 </head>
@@ -396,7 +415,7 @@ foreach ($hours as $h) {
         <a href="?page=projects" style="display:inline-block;margin-top:1em;">Bekijk alle projecten</a>
     </div>
     <?php elseif ($page === 'stats'): ?>
-<h1 style="margin-bottom:1.5em;">📊 Statistieken</h1>
+<h1>📊 Statistieken</h1>
 
 <div class="flex" style="gap:2em;flex-wrap:wrap;">
     <div class="card" style="flex:1;min-width:320px;">
@@ -456,9 +475,8 @@ if ($invoice) {
 </select>
                     </label>
                     <label>Project 
-    <select name="project_id" id="projectSelect">
-        <option value="" >-- Kies project --</option>
-        <!-- Options will be filled by JS -->
+    <select name="project_id" id="projectSelect" data-current-project-id="<?= h($invoice['project_id'] ?? '') ?>">
+        <option value="">-- Kies project --</option>
     </select>
 </label>
 <label>Reparatiedatum
@@ -471,37 +489,44 @@ if ($invoice) {
     <input type="text" name="car_model" value="<?= h($invoice['car_model'] ?? '') ?>">
 </label>
 <div class="invoice-lines-header">
-    <div>Omschrijving</div>
-    <div>Aantal</div>
-    <div>Stuksprijs</div>
-    <div>Korting %</div>
-    <div></div>
+  <div>Omschrijving <span class="required-star">*</span></div>
+  <div>Aantal <span class="required-star">*</span></div>
+  <div>Stuksprijs <span class="required-star">*</span></div>
+  <div>Korting %</div>
+  <div></div>
 </div>
 <div id="invoice-lines">
     <?php if (!empty($invoiceLines)): ?>
         <?php foreach ($invoiceLines as $i => $line): ?>
             <div class="invoice-line">
             <input type="text" name="lines[<?= $i ?>][omschrijving]" value="<?= h($line['description']) ?>">
-                <input type="number" name="lines[<?= $i ?>][aantal]" placeholder="Aantal" step="1" min="1" value="<?= h($line['quantity']) ?>">
-                <input type="number" name="lines[<?= $i ?>][stuksprijs]" placeholder="Stuksprijs" step="0.01" min="0" value="<?= h($line['unit_price']) ?>">
-                <input type="number" name="lines[<?= $i ?>][korting]" placeholder="Korting %" step="0.01" min="0" max="100" value="<?= h($line['discount']) ?>">
+                <input type="number" name="lines[<?= $i ?>][aantal]" step="1" min="1" value="<?= h($line['quantity']) ?>">
+                <input type="number" name="lines[<?= $i ?>][stuksprijs]" step="0.01" min="0" value="<?= h($line['unit_price']) ?>">
+                <input type="number" name="lines[<?= $i ?>][korting]" step="1" min="0" max="100" value="<?= h($line['discount']) ?>">
 <button type="button" class="remove-line">Verwijder</button> 
            </div>
         <?php endforeach; ?>
     <?php else: ?>
         <div class="invoice-line">
-            <input type="text" name="lines[0][omschrijving]" placeholder="Omschrijving">
-            <input type="number" name="lines[0][aantal]" placeholder="Aantal" step="1" min="1">
-            <input type="number" name="lines[0][stuksprijs]" placeholder="Stuksprijs" step="0.01" min="0">
-            <input type="number" name="lines[0][korting]" placeholder="Korting %" step="0.01" min="0" max="100">
+            <input type="text" name="lines[0][omschrijving]" required>
+            <input type="number" name="lines[0][aantal]" step="1" min="1" required>
+            <input type="number" name="lines[0][stuksprijs]" step="0.01" min="0" required>
+            <input type="number" name="lines[0][korting]" step="1" min="0" max="100">
             <button type="button" class="remove-line">Verwijder</button>
          </div>
     <?php endif; ?>
 </div>
-<button type="button" id="add-line" style="margin-bottom:1.5em;">+ Regel toevoegen</button>
-                    <label>Bedrag (€) <span class="required-star">*</span>
-                        <input type="number" name="amount" step="0.01" value="<?= h($invoice['amount']) ?>" required>
-                    </label>
+<button type="button" id="add-line" style="margin-bottom:1.5em;background:#22c55e;color:#fff;font-size:0.92em;padding:0.32em 0.7em;border-radius:6px;border:none;min-width:unset;width:auto;max-width:120px;">+ Regel toevoegen</button>
+<div style="display:flex;gap:3em;margin-bottom:2em;align-items:flex-end;">
+  <div style="display:flex;flex-direction:column;align-items:flex-start;">
+    <span style="font-weight:600;">Bedrag (excl. btw):</span>
+    <span id="invoice-total-excl" style="font-size:2em;font-weight:700;color:#22c55e;line-height:1.1;">€ 0,00</span>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-start;">
+    <span style="font-weight:600;">Bedrag (incl. btw):</span>
+    <span id="invoice-total-incl" style="font-size:2em;font-weight:700;color:#22c55e;line-height:1.1;">€ 0,00</span>
+  </div>
+</div>
                     <label class="checkbox-inline">
     <input type="checkbox" name="paid" value="1" <?= !empty($invoice['paid']) ? 'checked' : '' ?>>
     <span>Factuur is betaald</span>
@@ -522,7 +547,7 @@ if ($invoice) {
 </select>
                     </label>
                     <label>Project
-    <select name="project_id" id="projectSelect">
+    <select name="project_id" id="projectSelect" data-current-project-id="<?= h($invoice['project_id'] ?? '') ?>">
         <option value="">-- Kies project --</option>
         <!-- Options will be filled by JS -->
     </select>
@@ -537,26 +562,32 @@ if ($invoice) {
     <input type="text" name="car_model" value="<?= h($invoice['car_model'] ?? '') ?>">
 </label>
 <div class="invoice-lines-header">
-    <div>Omschrijving</div>
-    <div>Aantal</div>
-    <div>Stuksprijs</div>
+    <div>Omschrijving <span class="required-star">*</span></div>
+    <div>Aantal <span class="required-star">*</span></div>
+    <div>Stuksprijs <span class="required-star">*</span></div>
     <div>Korting %</div>
     <div></div>
 </div>
 <div id="invoice-lines">
     <div class="invoice-line">
-        <input type="text" name="lines[0][omschrijving]" placeholder="Omschrijving">
-        <input type="number" name="lines[0][aantal]" placeholder="Aantal" step="1" min="1">
-        <input type="number" name="lines[0][stuksprijs]" placeholder="Stuksprijs" step="0.01" min="0">
-        <input type="number" name="lines[0][korting]" placeholder="Korting %" step="0.01" min="0" max="100">
+        <input type="text" name="lines[0][omschrijving]" required>
+        <input type="number" name="lines[0][aantal]" step="1" min="1" required>
+        <input type="number" name="lines[0][stuksprijs]" step="0.01" min="0" required>
+        <input type="number" name="lines[0][korting]" step="1" min="0" max="100">
         <button type="button" class="remove-line" style="display:none;">Verwijder</button>
     </div>
 </div>
-<button type="button" id="add-line" style="margin-bottom:1.5em;">+ Regel toevoegen</button>
-                    <label>Bedrag (€) <span class="required-star">*</span>
-                        <input type="number" name="amount" step="0.01" required>
-                    </label>
-
+<button type="button" id="add-line" style="margin-bottom:2.5em;background:#22c55e;color:#fff;font-size:0.92em;padding:0.32em 0.7em;border-radius:6px;border:none;min-width:unset;width:auto;max-width:120px;">+ Regel toevoegen</button>
+                    <div style="display:flex;gap:2em;align-items:center;margin-bottom:1.2em;">
+  <div style="display:flex;flex-direction:column;align-items:flex-start;">
+    <span style="font-weight:600;">Bedrag (excl. btw):</span>
+    <span id="invoice-total-excl" style="font-size:2em;font-weight:700;color:#22c55e;line-height:1.1;">€ 0,00</span>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-start;">
+    <span style="font-weight:600;">Bedrag (incl. btw):</span>
+    <span id="invoice-total-incl" style="font-size:2em;font-weight:700;color:#22c55e;line-height:1.1;">€ 0,00</span>
+</div>
+</div>
                     <button type="submit">Factuur aanmaken</button>
                 </form>
             <?php endif; ?>
@@ -597,53 +628,68 @@ if ($invoice) {
     </div>
 
 <table id="invoicesTable">
-                <tr>
-    <th><span class="sortable" data-col="0">Factuurnr</span></th>
-    <th><span class="sortable" data-col="1">Klant</span></th>
-    <th><span class="sortable" data-col="2">Project</span></th>
-    <th><span class="sortable" data-col="3">Bedrag</span></th>
-    <th><span class="sortable" data-col="4">Datum</span></th>
-    <th><span class="sortable" data-col="5">Status</span></th>
-    <th></th><th></th>
-<th colspan="1" style="text-align:right;">
-  <label class="sort-switch">
-    <input type="checkbox" class="sort-order-toggle" checked>
-    <span class="slider"></span>
-    <span class="switch-label switch-label-left">Nieuwst</span>
-    <span class="switch-label switch-label-right">Oudst</span>
-  </label>
-</th>
-</tr>
-                <?php foreach ($invoices as $inv): ?>
-<tr>
-    <td><?= h($inv['number'] ?? $inv['id']) ?></td>
-    <td><?= h($clientsById[$inv['client_id']]['name'] ?? 'Onbekend') ?></td>
-    <td>
-        <?php
-            if (!empty($inv['project_id']) && isset($projectsById[$inv['project_id']])) {
-                echo h($projectsById[$inv['project_id']]['name']);
-            } else {
-                echo '-';
-            }
-        ?>
+    <tr>
+        <th><span class="sortable" data-col="0">Factuurnr</span></th>
+        <th><span class="sortable" data-col="1">Klant</span></th>
+        <th><span class="sortable" data-col="2">Project</span></th>
+        <th><span class="sortable" data-col="3">Bedrag (excl. btw)</span></th>
+        <th><span class="sortable" data-col="4">Bedrag (incl. btw)</span></th>
+        <th><span class="sortable" data-col="5">Factuurdatum</span></th>
+        <th><span class="sortable" data-col="6">Status</span></th>
+        <th></th><th></th>
+        <th colspan="1" style="text-align:right;">
+          <label class="sort-switch">
+            <input type="checkbox" class="sort-order-toggle" checked>
+            <span class="slider"></span>
+            <span class="switch-label switch-label-left">Oudst</span>
+            <span class="switch-label switch-label-right">Nieuwst</span>
+          </label>
+        </th>
+    </tr>
+    <?php foreach ($invoices as $inv): ?>
+    <tr data-invoice-id="<?= $inv['id'] ?>" data-created-at="<?= isset($inv['created_at']) ? h($inv['created_at']) : '' ?>">
+        <td><?= h($inv['number'] ?? $inv['id']) ?></td>
+        <td><?= h($clientsById[$inv['client_id']]['name'] ?? 'Onbekend') ?></td>
+        <td>
+            <?php
+                if (!empty($inv['project_id']) && isset($projectsById[$inv['project_id']])) {
+                    echo h($projectsById[$inv['project_id']]['name']);
+                } else {
+                    echo '-';
+                }
+            ?>
+        </td>
+        <td class="amount-excl">...</td>
+        <td class="amount-incl">...</td>
+        <td><?= h($inv['date']) ?></td>
+        <td>
+            <?php if (!empty($inv['paid'])): ?>
+                <span style="color:#22c55e;font-weight:600;">Betaald</span>
+            <?php else: ?>
+                <span style="color:#ef4444;font-weight:600;">Open</span>
+            <?php endif; ?>
+        </td>
+        <td>
+        <a href="generate_invoice.php?id=<?= $inv['id'] ?>" target="_blank" style="color:green;">Genereer PDF</a>
     </td>
-    <td>€<?= number_format($inv['amount'], 2, ',', '.') ?></td>
-    <td><?= h($inv['date']) ?></td>
-    <td>
-        <?php if (!empty($inv['paid'])): ?>
-            <span style="color:#22c55e;font-weight:600;">Betaald</span>
-        <?php else: ?>
-            <span style="color:#ef4444;font-weight:600;">Open</span>
-        <?php endif; ?>
-    </td>
-    <td>
-    <a href="generate_invoice.php?id=<?= $inv['id'] ?>" target="_blank" style="color:green;">Download PDF</a>
-</td>
-    <td><a href="?page=invoices&action=edit&id=<?= $inv['id'] ?>" style="color:blue;">Bewerken</a></td>
-    <td><a href="#" class="delete-link" data-href="?page=invoices&action=delete&id=<?= $inv['id'] ?>" style="color:red;">Verwijderen</a></td>
-</tr>
-<?php endforeach; ?>
-            </table>
+        <td><a href="?page=invoices&action=edit&id=<?= $inv['id'] ?>" style="color:blue;">Bewerken</a></td>
+        <td><a href="#" class="delete-link" data-href="?page=invoices&action=delete&id=<?= $inv['id'] ?>" style="color:red;">Verwijderen</a></td>
+    </tr>
+    <?php endforeach; ?>
+</table>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('tr[data-invoice-id]').forEach(function(row) {
+        var id = row.getAttribute('data-invoice-id');
+        fetch('invoice_amounts.php?id=' + id)
+            .then(r => r.json())
+            .then(data => {
+                row.querySelector('.amount-excl').textContent = '€' + data.subtotal.toLocaleString('nl-NL', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                row.querySelector('.amount-incl').textContent = '€' + data.total.toLocaleString('nl-NL', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            });
+    });
+});
+</script>
             <?php elseif ($page === 'hours'): ?>
     <h1>Urenregistratie</h1>
     <?php if (isset($_GET['action'], $_GET['id']) && $_GET['action'] === 'edit' && is_numeric($_GET['id'])):
@@ -747,25 +793,18 @@ if ($invoice) {
       <label class="sort-switch">
         <input type="checkbox" class="sort-order-toggle" checked>
         <span class="slider"></span>
-        <span class="switch-label switch-label-left">Nieuwst</span>
-        <span class="switch-label switch-label-right">Oudst</span>
+           <span class="switch-label switch-label-left">Oudst</span>
+            <span class="switch-label switch-label-right">Nieuwst</span>
       </label>
     </th>
 </tr>
 <?php foreach ($hours as $h): ?>
-    <tr>
+    <tr data-created-at="<?= isset($h['created_at']) ? h($h['created_at']) : '' ?>">
         <td><?= h($projectsById[$h['project_id']]['name'] ?? 'Onbekend') ?></td>
         <td>
             <?php
-                // Show client from project if project is set, otherwise from client_id
-                if (!empty($h['project_id']) && isset($projectsById[$h['project_id']])) {
-                    $clientId = $projectsById[$h['project_id']]['client_id'] ?? null;
-                    echo h($clientsById[$clientId]['name'] ?? 'Onbekend');
-                } elseif (!empty($h['client_id'])) {
-                    echo h($clientsById[$h['client_id']]['name'] ?? 'Onbekend');
-                } else {
-                    echo 'Onbekend';
-                }
+                // Display client directly associated with the hour
+                echo h($clientsById[$h['client_id']]['name'] ?? 'Onbekend');
             ?>
         </td>
         <td><?= h($h['date']) ?></td>
@@ -824,13 +863,13 @@ if ($invoice) {
   <label class="sort-switch">
     <input type="checkbox" class="sort-order-toggle" checked>
     <span class="slider"></span>
-    <span class="switch-label switch-label-left">Nieuwst</span>
-    <span class="switch-label switch-label-right">Oudst</span>
+           <span class="switch-label switch-label-left">Oudst</span>
+            <span class="switch-label switch-label-right">Nieuwst</span>
   </label>
 </th>
 </tr>
                 <?php foreach ($clients as $c): ?>
-                    <tr>
+                    <tr data-created-at="<?= isset($c['created_at']) ? h($c['created_at']) : '' ?>">
                         <td><?= h($c['name']) ?></td>
                         <td><a href="?page=clients&action=edit&id=<?= $c['id'] ?>">Bewerken</a></td>
                         <td>  
@@ -926,13 +965,13 @@ if ($invoice) {
   <label class="sort-switch">
     <input type="checkbox" class="sort-order-toggle" checked>
     <span class="slider"></span>
-    <span class="switch-label switch-label-left">Nieuwst</span>
-    <span class="switch-label switch-label-right">Oudst</span>
+           <span class="switch-label switch-label-left">Oudst</span>
+            <span class="switch-label switch-label-right">Nieuwst</span>
   </label>
 </th>
 </tr>
                 <?php foreach ($projects as $p): ?>
-                    <tr>
+                    <tr data-created-at="<?= isset($p['created_at']) ? h($p['created_at']) : '' ?>">
                         <td><?= h($p['name']) ?></td>
                         <td><?= h($clientsById[$p['client_id']]['name'] ?? 'Onbekend') ?></td>
                         <td>
@@ -1013,10 +1052,42 @@ const recentHoursData = <?= json_encode(array_map(fn($h) => $h['hours'], $recent
 <script src="invoice-lines.js"></script>
 <?php endif; ?>
 <script>
-var allProjects = <?= json_encode($projects) ?>;
-var selectedProjectId = <?= isset($invoice['project_id']) ? json_encode($invoice['project_id']) : 'null' ?>;
+// Update the invoice total fields live
+function updateInvoiceTotals() {
+    let total = 0;
+    document.querySelectorAll('#invoice-lines .invoice-line').forEach(function(line) {
+        const qty = parseFloat(line.querySelector('input[name*="[aantal]"]')?.value || 0);
+        const price = parseFloat(line.querySelector('input[name*="[stuksprijs]"]')?.value || 0);
+        const discount = parseFloat(line.querySelector('input[name*="[korting]"]')?.value || 0);
+        if (!isNaN(qty) && !isNaN(price)) {
+            let lineTotal = qty * price * (1 - (isNaN(discount) ? 0 : discount) / 100);
+            total += lineTotal;
+        }
+    });
+    const totalExcl = document.getElementById('invoice-total-excl');
+    const totalIncl = document.getElementById('invoice-total-incl');
+    if (totalExcl) totalExcl.textContent = '€ ' + total.toLocaleString('nl-NL', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    if (totalIncl) totalIncl.textContent = '€ ' + (total * 1.21).toLocaleString('nl-NL', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+document.addEventListener('DOMContentLoaded', function() {
+    const linesContainer = document.getElementById('invoice-lines');
+    if (linesContainer) {
+        linesContainer.addEventListener('input', updateInvoiceTotals);
+        const recalcObserver = new MutationObserver(updateInvoiceTotals);
+        recalcObserver.observe(linesContainer, { childList: true, subtree: false });
+        updateInvoiceTotals();
+    }
+});
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="dashboard.js"></script>
+<?php
+if ($page === 'invoices') {
+    // Fetch all projects for the project selection dropdown
+    $projectsStmt = $pdo->query("SELECT id, name, client_id FROM projects");
+    $allProjects = $projectsStmt->fetchAll(PDO::FETCH_ASSOC);
+    echo '<script>const allProjects = ' . json_encode($allProjects) . ';</script>';
+}
+?>
 </body>
 </html>

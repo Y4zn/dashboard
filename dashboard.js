@@ -103,9 +103,9 @@
             }
             // Date filters
             var dateCol = null;
-            if (page === 'invoices') dateCol = 4;
+            if (page === 'invoices') dateCol = 5;
             if (page === 'hours') dateCol = 2;
-            if (page === 'projects') dateCol = null;
+            if (page === 'projects') dateCol = 2; // Assuming column 2 contains the date for projects
             if (page === 'clients') dateCol = null;
             if (dateFrom && dateCol !== null && cells[dateCol]) {
                 var rowDate = cells[dateCol].textContent.trim();
@@ -132,30 +132,34 @@
 
 // PROJECT SELECT BY CLIENT (for invoices)
 (function() {
-    if (typeof allProjects === 'undefined') return;
     var clientSel = document.getElementById('clientSelect');
     var projectSel = document.getElementById('projectSelect');
     if (!clientSel || !projectSel) return;
+
     function updateProjectOptions() {
         var clientId = clientSel.value;
-        var current = typeof selectedProjectId !== 'undefined' ? selectedProjectId : null;
+        var currentProjectId = projectSel.getAttribute('data-current-project-id');
         projectSel.innerHTML = '<option value="">-- Kies project --</option>';
-        allProjects.forEach(function(proj) {
-            if (!clientId || String(proj.client_id) === String(clientId)) {
-                var opt = document.createElement('option');
-                opt.value = proj.id;
-                opt.textContent = proj.name;
-                if (current && proj.id == current) {
-                    opt.selected = true;
-                }
-                projectSel.appendChild(opt);
-            }
-        });
+
+        if (!clientId) return;
+
+        fetch('client_projects.php?client_id=' + clientId)
+            .then(response => response.json())
+            .then(projects => {
+                projects.forEach(function(proj) {
+                    var opt = document.createElement('option');
+                    opt.value = proj.id;
+                    opt.textContent = proj.name;
+                    if (currentProjectId && proj.id == currentProjectId) {
+                        opt.selected = true;
+                    }
+                    projectSel.appendChild(opt);
+                });
+            })
+            .catch(error => console.error('Error fetching projects:', error));
     }
-    clientSel.addEventListener('change', function() {
-        selectedProjectId = null;
-        updateProjectOptions();
-    });
+
+    clientSel.addEventListener('change', updateProjectOptions);
     updateProjectOptions();
 })();
 
@@ -369,43 +373,27 @@ if (typeof Chart !== 'undefined') {
 // NIEUWST/OUDST TOGGLE
 (function() {
     document.querySelectorAll('.sort-order-toggle').forEach(function(toggle) {
-        toggle.addEventListener('change', function() {
+        function applySorting() {
             var th = toggle.closest('th');
             var table = th.closest('table');
-            var rows = Array.from(table.querySelectorAll('tr')).slice(1); // skip header
-            // Try to sort by date column if available, else by ID (first col)
-            var dateCol = null;
-            var page = document.body.dataset.page || '';
-            if (page === 'invoices') dateCol = 4;
-            if (page === 'hours') dateCol = 2;
-            if (page === 'projects') dateCol = null;
-            if (page === 'clients') dateCol = null;
-            if (dateCol !== null && rows[0] && rows[0].children[dateCol]) {
-                rows.sort(function(a, b) {
-                    var aDate = a.children[dateCol].textContent.trim();
-                    var bDate = b.children[dateCol].textContent.trim();
-                    if (toggle.checked) {
-                        return bDate.localeCompare(aDate);
-                    } else {
-                        return aDate.localeCompare(bDate);
-                    }
-                });
-            } else {
-                var idCol = 0;
-                rows.sort(function(a, b) {
-                    var aId = parseInt(a.children[idCol].textContent.replace(/\D/g, ''), 10);
-                    var bId = parseInt(b.children[idCol].textContent.replace(/\D/g, ''), 10);
-                    if (toggle.checked) {
-                        return bId - aId;
-                    } else {
-                        return aId - bId;
-                    }
-                });
-            }
+            var rows = Array.from(table.querySelectorAll('tr')).filter(function(row, idx) {
+                // Only data rows (skip header and empty rows)
+                return idx > 0 && row.hasAttribute('data-created-at');
+            });
+            rows.sort(function(a, b) {
+                var aTs = Date.parse(a.getAttribute('data-created-at')) || 0;
+                var bTs = Date.parse(b.getAttribute('data-created-at')) || 0;
+                if (toggle.checked) {
+                    return bTs - aTs; // Nieuwst (newest first)
+                } else {
+                    return aTs - bTs; // Oudst (oldest first)
+                }
+            });
             rows.forEach(function(row) { table.appendChild(row); });
-        });
+            // Debug: show what table was sorted and order
+            console.log('Sorted by created_at:', table ? table.id : '', 'checked:', toggle.checked);
+        }
+        toggle.addEventListener('change', applySorting);
+        applySorting(); // Apply sorting on page load
     });
 })();
-
-// HOURS FORM: SHOW BOTH PROJECT AND CLIENT SELECTS (no toggle needed)
-// If you still have the old linkType toggle, remove its JS!
