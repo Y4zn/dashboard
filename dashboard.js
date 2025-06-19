@@ -180,11 +180,12 @@
     });
 })();
 
-// CHARTS (Chart.js)
-(function() {
-    if (typeof Chart === 'undefined') return;
-    // Data from PHP must be set as global variables
-    if (typeof monthsLabels !== 'undefined' && typeof monthsData !== 'undefined' && document.getElementById('hoursPerMonthChart')) {
+
+// Chart.js charts for Statistieken page
+// (No DOMContentLoaded block, just run immediately)
+if (typeof Chart !== 'undefined') {
+    // Uren per maand
+    if (document.getElementById('hoursPerMonthChart') && typeof monthsLabels !== 'undefined') {
         new Chart(document.getElementById('hoursPerMonthChart').getContext('2d'), {
             type: 'bar',
             data: {
@@ -196,6 +197,8 @@
                 }]
             },
             options: {
+                responsive: false,
+                maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
                     y: { beginAtZero: true, ticks: { color: '#888' } },
@@ -204,7 +207,9 @@
             }
         });
     }
-    if (typeof projectStatusLabels !== 'undefined' && typeof projectStatusData !== 'undefined' && document.getElementById('projectStatusChart')) {
+
+    // Projectstatus
+    if (document.getElementById('projectStatusChart') && typeof projectStatusLabels !== 'undefined') {
         new Chart(document.getElementById('projectStatusChart').getContext('2d'), {
             type: 'doughnut',
             data: {
@@ -215,13 +220,15 @@
                 }]
             },
             options: {
+                responsive: false,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
                         labels: {
                             color: '#888',
                             font: { size: 14 },
                             boxWidth: 14,
-                            boxHeight: 10,
+                            boxHeight: 15,
                             padding: 8
                         }
                     }
@@ -229,7 +236,106 @@
             }
         });
     }
-})();
+
+    // Top 5 projecten (uren)
+    if (document.getElementById('topProjectsChart') && typeof topProjectsLabels !== 'undefined') {
+        new Chart(document.getElementById('topProjectsChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: topProjectsLabels,
+                datasets: [{
+                    label: 'Uren',
+                    data: topProjectsData,
+                    backgroundColor: '#2563eb'
+                }]
+            },
+            options: {
+                responsive: false,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { color: '#888' } },
+                    x: { ticks: { color: '#888' } }
+                }
+            }
+        });
+    }
+
+    // Top 5 klanten (projecten)
+    if (document.getElementById('topClientsChart') && typeof topClientsLabels !== 'undefined') {
+        new Chart(document.getElementById('topClientsChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: topClientsLabels,
+                datasets: [{
+                    label: 'Projecten',
+                    data: topClientsData,
+                    backgroundColor: '#22c55e'
+                }]
+            },
+            options: {
+                responsive: false,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { color: '#888' } },
+                    x: { ticks: { color: '#888' } }
+                }
+            }
+        });
+    }
+
+    // Facturatie
+    if (document.getElementById('invoicingChart') && typeof invoicingLabels !== 'undefined') {
+        new Chart(document.getElementById('invoicingChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: invoicingLabels,
+                datasets: [{
+                    label: 'Bedrag (€)',
+                    data: invoicingData,
+                    backgroundColor: ['#2563eb', '#a855f7', '#ef4444']
+                }]
+            },
+            options: {
+                responsive: false,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { color: '#888' } },
+                    x: { ticks: { color: '#888' } }
+                }
+            }
+        });
+    }
+
+    // Recente activiteit (uren)
+    if (document.getElementById('recentHoursChart') && typeof recentHoursLabels !== 'undefined') {
+        new Chart(document.getElementById('recentHoursChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: recentHoursLabels,
+                datasets: [{
+                    label: 'Uren',
+                    data: recentHoursData,
+                    borderColor: '#2563eb',
+                    backgroundColor: '#2563eb22',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: false,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { color: '#888' } },
+                    x: { ticks: { color: '#888' } }
+                }
+            }
+        });
+    }
+}
 
 // COLUMN SORTING
 (function() {
@@ -299,5 +405,3 @@
 
 // HOURS FORM: SHOW BOTH PROJECT AND CLIENT SELECTS (no toggle needed)
 // If you still have the old linkType toggle, remove its JS!
-
-console.log('clientId:', clientId, 'allProjects:', allProjects);

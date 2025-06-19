@@ -355,80 +355,38 @@ foreach ($hours as $h) {
         </table>
         <a href="?page=projects" style="display:inline-block;margin-top:1em;">Bekijk alle projecten</a>
     </div>
-        <?php elseif ($page === 'stats'): ?>
-            <h1 style="margin-bottom:1.5em;">📊 Statistieken</h1>
-    <div class="flex" style="gap:2em;flex-wrap:wrap;">
-        <div class="card" style="flex:1;min-width:320px;">
-            <h3 style="margin-top:0;">Uren per maand</h3>
-            <canvas id="hoursPerMonthChart" height="180"></canvas>
-        </div>
-        <div class="card" style="flex:1;min-width:320px;">
-            <h3 style="margin-top:0;">Projectstatus</h3>
-            <canvas id="projectStatusChart" style="max-width:400px;max-height:260px;display:block;margin:0 auto;" width="400" height="260"></canvas>
-            <div style="margin-top:1.2em;">
-                <span style="display:inline-block;width:14px;height:14px;background:#2563eb;border-radius:3px;margin-right:6px;vertical-align:middle;"></span>
-                Lopend: <strong><?= count($ongoingProjects) ?></strong>
-                <span style="display:inline-block;width:14px;height:14px;background:#22c55e;border-radius:3px;margin:0 6px 0 18px;vertical-align:middle;"></span>
-                Afgerond: <strong><?= count($finishedProjects) ?></strong>
-            </div>
-        </div>
-    </div>
+    <?php elseif ($page === 'stats'): ?>
+<h1 style="margin-bottom:1.5em;">📊 Statistieken</h1>
 
-    <div class="flex" style="gap:2em;flex-wrap:wrap;margin-top:2em;">
-        <div class="card" style="flex:1;min-width:320px;">
-            <h3 style="margin-top:0;">Top 5 projecten (uren)</h3>
-            <ol style="padding-left:1.2em;margin:0;">
-                <?php foreach ($topProjects as $pid => $hcount): ?>
-                    <li style="margin-bottom:.5em;">
-                        <span style="font-weight:600;"><?= h($projectsById[$pid]['name'] ?? 'Onbekend') ?></span>
-                        <span style="color:#2563eb;font-weight:500;">(<?= $hcount ?> uur)</span>
-                    </li>
-                <?php endforeach; ?>
-            </ol>
-        </div>
-        <div class="card" style="flex:1;min-width:320px;">
-            <h3 style="margin-top:0;">Top 5 klanten (projecten)</h3>
-            <ol style="padding-left:1.2em;margin:0;">
-                <?php foreach ($topClients as $cid => $count): ?>
-                    <li style="margin-bottom:.5em;">
-                        <span style="font-weight:600;"><?= h($clientsById[$cid]['name'] ?? 'Onbekend') ?></span>
-                        <span style="color:#22c55e;font-weight:500;">(<?= $count ?> projecten)</span>
-                    </li>
-                <?php endforeach; ?>
-            </ol>
-        </div>
-        <div class="card" style="flex:1;min-width:320px;">
-            <h3 style="margin-top:0;">Facturatie</h3>
-            <ul style="list-style:none;padding:0;margin:0;">
-                <li>Totaal gefactureerd: <strong>€<?= number_format($totalInvoiced, 2, ',', '.') ?></strong></li>
-                <li>Gemiddelde factuur: <strong>€<?= number_format($avgInvoice, 2, ',', '.') ?></strong></li>
-                <li>Grootste factuur: <strong>€<?= number_format($maxInvoice, 2, ',', '.') ?></strong></li>
-            </ul>
-            <h4 style="margin-top:1.5em;margin-bottom:.7em;">Openstaand per klant</h4>
-            <ul style="list-style:none;padding:0;margin:0;">
-                <?php foreach ($unpaidByClient as $cid => $amount): ?>
-                    <li>
-                        <span style="font-weight:600;"><?= h($clientsById[$cid]['name'] ?? 'Onbekend') ?>:</span>
-                        <span style="color:#ef4444;font-weight:500;">€<?= number_format($amount, 2, ',', '.') ?></span>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-        <div class="card" style="flex:1;min-width:320px;">
-            <h3 style="margin-top:0;">Recente activiteit</h3>
-            <ul style="list-style:none;padding:0;margin:0;">
-                <?php foreach ($recentHours as $h): ?>
-                    <li>
-                        <?= date('d-m-Y', strtotime($h['date'])) ?>: 
-                        <span style="font-weight:600;"><?= h($projectsById[$h['project_id']]['name'] ?? 'Onbekend project') ?></span>, 
-                        <span style="color:#2563eb;font-weight:500;"><?= $h['hours'] ?> uur</span>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-            <h4 style="margin-top:1.5em;margin-bottom:.7em;">Uren deze maand</h4>
-            <p style="margin:0;"><strong><?= $monthHours ?></strong> uur geregistreerd in <?= date('F Y') ?></p>
-        </div>
+<div class="flex" style="gap:2em;flex-wrap:wrap;">
+    <div class="card" style="flex:1;min-width:320px;">
+        <h3 style="margin-top:0;">Uren per maand</h3>
+        <canvas id="hoursPerMonthChart" height="220"></canvas>
     </div>
+    <div class="card" style="flex:1;min-width:320px;">
+        <h3 style="margin-top:0;">Projectstatus</h3>
+        <canvas id="projectStatusChart" height="190"></canvas>
+    </div>
+</div>
+
+<div class="flex" style="gap:2em;flex-wrap:wrap;margin-top:2em;">
+    <div class="card" style="flex:1;min-width:320px;">
+        <h3 style="margin-top:0;">Top 5 projecten (uren)</h3>
+        <canvas id="topProjectsChart" height="220"></canvas>
+    </div>
+    <div class="card" style="flex:1;min-width:320px;">
+        <h3 style="margin-top:0;">Top 5 klanten (projecten)</h3>
+        <canvas id="topClientsChart" height="220"></canvas>
+    </div>
+    <div class="card" style="flex:1;min-width:320px;">
+        <h3 style="margin-top:0;">Facturatie</h3>
+        <canvas id="invoicingChart" height="220"></canvas>
+    </div>
+    <div class="card" style="flex:1;min-width:320px;">
+        <h3 style="margin-top:0;">Recente activiteit</h3>
+        <canvas id="recentHoursChart" height="220"></canvas>
+    </div>
+</div>
         <?php elseif ($page === 'invoices'): ?>
             <h1>Facturen</h1>
             <?php if (isset($_GET['action'], $_GET['id']) && $_GET['action'] === 'edit' && is_numeric($_GET['id'])):
@@ -937,6 +895,22 @@ const monthsLabels = <?= json_encode(array_map(fn($m) => date('M Y', strtotime($
 const monthsData = <?= json_encode(array_values($months)) ?>;
 const projectStatusLabels = ["Lopend", "Afgerond"];
 const projectStatusData = [<?= count($ongoingProjects) ?>, <?= count($finishedProjects) ?>];
+
+const topProjectsLabels = <?= json_encode(array_map(fn($pid) => $projectsById[$pid]['name'] ?? 'Onbekend', array_keys($topProjects))) ?>;
+const topProjectsData = <?= json_encode(array_values($topProjects)) ?>;
+
+const topClientsLabels = <?= json_encode(array_map(fn($cid) => $clientsById[$cid]['name'] ?? 'Onbekend', array_keys($topClients))) ?>;
+const topClientsData = <?= json_encode(array_values($topClients)) ?>;
+
+const invoicingLabels = ["Totaal", "Gemiddeld", "Grootste"];
+const invoicingData = [
+    <?= json_encode(round($totalInvoiced, 2)) ?>,
+    <?= json_encode(round($avgInvoice, 2)) ?>,
+    <?= json_encode(round($maxInvoice, 2)) ?>
+];
+
+const recentHoursLabels = <?= json_encode(array_map(fn($h) => date('d-m-Y', strtotime($h['date'])), $recentHours)) ?>;
+const recentHoursData = <?= json_encode(array_map(fn($h) => $h['hours'], $recentHours)) ?>;
 </script>
 <?php endif; ?>
 <script>
