@@ -105,6 +105,8 @@
             var dateCol = null;
             if (page === 'invoices') dateCol = 4;
             if (page === 'hours') dateCol = 2;
+            if (page === 'projects') dateCol = null;
+            if (page === 'clients') dateCol = null;
             if (dateFrom && dateCol !== null && cells[dateCol]) {
                 var rowDate = cells[dateCol].textContent.trim();
                 if (rowDate && rowDate < dateFrom) show = false;
@@ -139,7 +141,7 @@
         var current = typeof selectedProjectId !== 'undefined' ? selectedProjectId : null;
         projectSel.innerHTML = '<option value="">-- Kies project --</option>';
         allProjects.forEach(function(proj) {
-            if (String(proj.client_id) === String(clientId)) {
+            if (!clientId || String(proj.client_id) === String(clientId)) {
                 var opt = document.createElement('option');
                 opt.value = proj.id;
                 opt.textContent = proj.name;
@@ -297,3 +299,5 @@
 
 // HOURS FORM: SHOW BOTH PROJECT AND CLIENT SELECTS (no toggle needed)
 // If you still have the old linkType toggle, remove its JS!
+
+console.log('clientId:', clientId, 'allProjects:', allProjects);

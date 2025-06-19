@@ -439,7 +439,7 @@ foreach ($hours as $h) {
                 <form class="card" method="post" action="">
                     <h3>Factuur bewerken</h3>
                     <input type="hidden" name="edit_id" value="<?= $invoice['id'] ?>">
-                    <label>Klant
+                    <label>Klant <span class="required-star">*</span>
 <select name="client_id" id="clientSelect" required>
     <?php foreach ($clients as $c): ?>
         <option value="<?= $c['id'] ?>" <?= (!empty($invoice['client_id']) && $invoice['client_id'] == $c['id']) ? 'selected' : '' ?>>
@@ -448,9 +448,9 @@ foreach ($hours as $h) {
     <?php endforeach; ?>
 </select>
                     </label>
-                    <label>Project
-    <select name="project_id" id="projectSelect" required>
-        <option value="">-- Kies project --</option>
+                    <label>Project 
+    <select name="project_id" id="projectSelect">
+        <option value="" >-- Kies project --</option>
         <!-- Options will be filled by JS -->
     </select>
 </label>
@@ -463,7 +463,7 @@ foreach ($hours as $h) {
 <label>Merk
     <input type="text" name="car_model" value="<?= h($invoice['car_model'] ?? '') ?>">
 </label>
-                    <label>Bedrag (€)
+                    <label>Bedrag (€) <span class="required-star">*</span>
                         <input type="number" name="amount" step="0.01" value="<?= h($invoice['amount']) ?>" required>
                     </label>
                     <label class="checkbox-inline">
@@ -476,7 +476,7 @@ foreach ($hours as $h) {
             <?php else: ?>
                 <form class="card" method="post" action="">
                     <h3>Nieuwe factuur</h3>
-                    <label>Klant
+                    <label>Klant <span class="required-star">*</span>
 <select name="client_id" id="clientSelect" required>
     <?php foreach ($clients as $c): ?>
         <option value="<?= $c['id'] ?>" <?= (!empty($invoice['client_id']) && $invoice['client_id'] == $c['id']) ? 'selected' : '' ?>>
@@ -486,7 +486,7 @@ foreach ($hours as $h) {
 </select>
                     </label>
                     <label>Project
-    <select name="project_id" id="projectSelect" required>
+    <select name="project_id" id="projectSelect">
         <option value="">-- Kies project --</option>
         <!-- Options will be filled by JS -->
     </select>
@@ -500,7 +500,7 @@ foreach ($hours as $h) {
 <label>Merk
     <input type="text" name="car_model" value="<?= h($invoice['car_model'] ?? '') ?>">
 </label>
-                    <label>Bedrag (€)
+                    <label>Bedrag (€) <span class="required-star">*</span>
                         <input type="number" name="amount" step="0.01" required>
                     </label>
                     <button type="submit">Factuur aanmaken</button>
@@ -620,10 +620,10 @@ foreach ($hours as $h) {
                     <?php endforeach; ?>
                 </select>
             </label>
-            <label>Datum
+            <label>Datum <span class="required-star">*</span>
                 <input type="date" name="date" value="<?= h($hour['date']) ?>" required>
             </label>
-            <label>Uren
+            <label>Uren <span class="required-star">*</span>
                 <input type="number" name="hours" step="0.25" value="<?= number_format((float)$hour['hours'], 2, '.', '') ?>" required>
             </label>
             <button type="submit">Opslaan</button>
@@ -648,10 +648,10 @@ foreach ($hours as $h) {
                     <?php endforeach; ?>
                 </select>
             </label>
-            <label>Datum
+            <label>Datum <span class="required-star">*</span>
                 <input type="date" name="date" required>
             </label>
-            <label>Uren
+            <label>Uren <span class="required-star">*</span>
                 <input type="number" name="hours" step="0.25" required>
             </label>
             <button type="submit">Toevoegen</button>
@@ -733,18 +733,18 @@ foreach ($hours as $h) {
                 <form class="card" method="post" action="">
                     <h3>Klant bewerken</h3>
                     <input type="hidden" name="edit_id" value="<?= $client['id'] ?>">
-                    <label>Naam
-                        <input type="text" name="name" value="<?= h($client['name']) ?>" required>
-                    </label>
+  <label>Naam <span class="required-star">*</span>
+    <input type="text" name="name" required>
+</label>
                     <button type="submit">Opslaan</button>
                     <a href="?page=clients" style="margin-left:1em;">Annuleren</a>
                 </form>
             <?php else: ?>
                 <form class="card" method="post" action="">
                     <h3>Nieuwe klant</h3>
-                    <label>Naam
-                        <input type="text" name="name" required>
-                    </label>
+<label>Naam <span class="required-star">*</span>
+    <input type="text" name="name" required>
+</label>
                     <button type="submit">Toevoegen</button>
                 </form>
             <?php endif; ?>
@@ -795,7 +795,7 @@ foreach ($hours as $h) {
                 <form class="card" method="post" action="">
                     <h3>Project bewerken</h3>
                     <input type="hidden" name="edit_id" value="<?= $project['id'] ?>">
-                    <label>Klant
+                    <label>Klant <span class="required-star">*</span>
                         <select name="client_id">
                             <?php foreach ($clients as $c): ?>
                                 <option value="<?= $c['id'] ?>" <?= $c['id'] == $project['client_id'] ? 'selected' : '' ?>>
@@ -804,11 +804,11 @@ foreach ($hours as $h) {
                             <?php endforeach; ?>
                         </select>
                     </label>
-                    <label>Projectnaam
+                    <label>Projectnaam <span class="required-star">*</span>
                         <input type="text" name="name" value="<?= h($project['name']) ?>" required>
                     </label>
-                    <label>Status
-    <select name="status" required>
+                    <label>Status <span class="required-star">*</span>
+    <select name="status" required> 
         <option value="ongoing" <?= (isset($project['status']) && $project['status'] === 'ongoing') ? 'selected' : '' ?>>Lopend</option>
         <option value="finished" <?= (isset($project['status']) && $project['status'] === 'finished') ? 'selected' : '' ?>>Afgerond</option>
     </select>
@@ -819,17 +819,17 @@ foreach ($hours as $h) {
             <?php else: ?>
                 <form class="card" method="post" action="">
                     <h3>Nieuw project</h3>
-                    <label>Klant
+                    <label>Klant <span class="required-star">*</span>
                         <select name="client_id">
                             <?php foreach ($clients as $c): ?>
                                 <option value="<?= $c['id'] ?>"><?= h($c['name']) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </label>
-                    <label>Projectnaam
+                    <label>Projectnaam <span class="required-star">*</span>
                         <input type="text" name="name" required>
                     </label>
-                    <label>Status
+                    <label>Status <span class="required-star">*</span>
     <select name="status" required>
         <option value="ongoing">Lopend</option>
         <option value="finished">Afgerond</option>
@@ -931,6 +931,19 @@ foreach ($hours as $h) {
   </div>
 </div>
 <button id="darkModeToggle" style="position:absolute;top:18px;right:18px;padding:0.5em 1.2em;border-radius:6px;border:none;background:#222;color:#fff;cursor:pointer;font-weight:600;">🌙 Donker</button>
+<?php if ($page === 'stats'): ?>
+<script>
+const monthsLabels = <?= json_encode(array_map(fn($m) => date('M Y', strtotime($m.'-01')), array_keys($months))) ?>;
+const monthsData = <?= json_encode(array_values($months)) ?>;
+const projectStatusLabels = ["Lopend", "Afgerond"];
+const projectStatusData = [<?= count($ongoingProjects) ?>, <?= count($finishedProjects) ?>];
+</script>
+<?php endif; ?>
+<script>
+var allProjects = <?= json_encode($projects) ?>;
+var selectedProjectId = <?= isset($invoice['project_id']) ? json_encode($invoice['project_id']) : 'null' ?>;
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="dashboard.js"></script>
 </body>
 </html>
