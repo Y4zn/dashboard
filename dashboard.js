@@ -6,13 +6,13 @@
         document.body.classList.toggle('dark-mode', on);
         if (on) {
             btn.innerHTML = '☀️ Licht';
+            btn.style.background = '#fff';
             btn.style.color = '#18181b';
-            btn.style.background = '#f3f4f6';
             localStorage.setItem('darkMode', '1');
         } else {
             btn.innerHTML = '🌙 Donker';
-            btn.style.color = '#f3f4f6';
-            btn.style.background = '#23232a';
+            btn.style.background = '#18181b';
+            btn.style.color = '#fff';
             localStorage.removeItem('darkMode');
         }
     }

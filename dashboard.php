@@ -39,6 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("UPDATE clients SET name = :name WHERE id = :id");
             $stmt->execute(['name' => $_POST['name'], 'id' => $_POST['edit_id']]);
             $_SESSION['success_message'] = "Klant succesvol bijgewerkt!";
+            header("Location: ?page=clients");
+            exit;
         } else {
             $stmt = $pdo->prepare("INSERT INTO clients (name) VALUES (:name)");
             $stmt->execute(['name' => $_POST['name']]);
@@ -56,6 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'id' => $_POST['edit_id']
             ]);
             $_SESSION['success_message'] = "Project succesvol bijgewerkt!";
+            header("Location: ?page=projects");
+            exit;
         } else {
             $stmt = $pdo->prepare("INSERT INTO projects (name, client_id, status) VALUES (:name, :client_id, :status)");
             $stmt->execute([
@@ -343,7 +347,19 @@ foreach ($hours as $h) {
     </div>
     <div class="main">
         <?php if ($page === 'dashboard'): ?>
-            <h1 style="margin-bottom:1.5em;">Welkom terug!</h1>
+            <?php
+            $hour = (int)date('H');
+            if ($hour < 12) {
+                $greeting = 'Goedemorgen';
+            } elseif ($hour < 18) {
+                $greeting = 'Goedemiddag';
+            } else {
+                $greeting = 'Goedenavond';
+            }
+        ?>
+        <h1 style="margin-bottom:1.5em;">
+            <?= $greeting ?>, <span style="color:#2563eb;"><?= h($_SESSION['username']) ?></span>!
+        </h1>
             <div class="stats-grid dashboard-cards">
         <a href="?page=clients" class="stat-card-link">
             <div class="stat-card stat-card-blue">
@@ -827,7 +843,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <h3>Klant bewerken</h3>
                     <input type="hidden" name="edit_id" value="<?= $client['id'] ?>">
   <label>Naam <span class="required-star">*</span>
-    <input type="text" name="name" required>
+    <input type="text" name="name" required value="<?= h($client['name']) ?>">
 </label>
                     <button type="submit">Opslaan</button>
                     <a href="?page=clients" style="margin-left:1em;">Annuleren</a>
@@ -943,7 +959,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 <option value="all">Alle</option>
                 <option value="0">Project</option>
                 <option value="1">Klant</option>
-                <option value="2">Status</option>
             </select>
         </div>
         <div style="display:flex; flex-direction:column; min-width:120px;">
@@ -993,7 +1008,17 @@ document.addEventListener('DOMContentLoaded', function() {
         <?php endif; ?>
         <div style="margin-top:2em;">
             <small>
-                Slimme koppelingen: <a href="https://calendar.google.com/" target="_blank">Google Agenda</a> | <a href="https://drive.google.com/" target="_blank">Cloudopslag</a>
+                Slimme koppelingen: 
+                <a href="https://calendar.google.com/" target="_blank">Google Agenda</a> |
+                <a href="https://drive.google.com/" target="_blank">Google Drive</a> |
+                <a href="https://docs.google.com/" target="_blank">Google Docs</a> |
+                <a href="https://sheets.google.com/" target="_blank">Google Sheets</a> |
+                <a href="https://forms.google.com/" target="_blank">Google Forms</a> |
+                <a href="https://contacts.google.com/" target="_blank">Google Contacten</a> |
+                <a href="https://mail.google.com/" target="_blank">Gmail</a> |
+                <a href="https://meet.google.com/" target="_blank">Google Meet</a> |
+                <a href="https://keep.google.com/" target="_blank">Google Keep</a> |
+                <a href="https://tasks.google.com/" target="_blank">Google Taken</a>
             </small>
         </div>
     </div>
@@ -1023,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <button id="saveConfirmNo" style="background:#e5e7eb;color:#222;padding:0.7em 2em;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Annuleren</button>
   </div>
 </div>
-<button id="darkModeToggle" style="position:absolute;top:18px;right:18px;padding:0.5em 1.2em;border-radius:6px;border:none;background:#222;color:#fff;cursor:pointer;font-weight:600;">🌙 Donker</button>
+<button id="darkModeToggle" style="position:absolute;top:18px;right:18px;padding:0.5em 1.2em;border-radius:6px;border:none;cursor:pointer;font-weight:600;box-shadow:0 2px 8px">🌙 Donker</button>
 <?php if ($page === 'stats'): ?>
 <script>
 const monthsLabels = <?= json_encode(array_map(fn($m) => date('M Y', strtotime($m.'-01')), array_keys($months))) ?>;
