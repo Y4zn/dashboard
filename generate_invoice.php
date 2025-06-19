@@ -68,11 +68,15 @@ body { font-family: Arial, sans-serif; font-size: 11pt; }
 .items-table th { color: #ef4444; font-weight: bold; border-bottom: 1px solid #888; padding: 6px 4px 6px 0; font-size: 10.5pt; }
 .items-table td { border-bottom: 1px solid #ddd; padding: 6px 4px 6px 0; font-size: 10.5pt; }
 .items-table tr:last-child td { border-bottom: none; }
-.items-table th.oms { width: 38%; }
-.items-table th.aantal { width: 12%; }
-.items-table th.stuks { width: 16%; }
-.items-table th.korting { width: 14%; }
-.items-table th.bedrag { width: 20%; }
+.items-table th.oms, .items-table td:nth-child(1) { width: 180px; }
+.items-table th.aantal, .items-table td:nth-child(2) { width: 60px; text-align: center; }
+.items-table th.stuks, .items-table td:nth-child(3) { width: 90px; text-align: right; }
+.items-table th.korting, .items-table td:nth-child(4) { width: 70px; text-align: right; }
+.items-table th.bedrag, .items-table td:nth-child(5) { width: 90px; text-align: right; }
+.items-table th, .items-table td { text-align: left; }
+.items-table td:nth-child(2), .items-table td:nth-child(3), .items-table td:nth-child(4), .items-table td:nth-child(5) {
+    text-align: right;
+}
 .totals-table { width: 100%; margin-top: 30px; }
 .totals-table td { font-size: 11pt; padding: 4px 0; }
 .totals-table tr td:first-child { border: none; }
@@ -131,7 +135,7 @@ $html .= '</table>
 
 <table class="totals-table">
     <tr>
-        <td colspan="4">Totaal (factuurbedrag + extra items):</td>
+        <td colspan="4">Totaal:</td>
         <td>€ ' . number_format($combined_total, 2, ',', '.') . '</td>
     </tr>
     <tr>

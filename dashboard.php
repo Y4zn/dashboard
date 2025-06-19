@@ -101,6 +101,46 @@ if ($page === 'invoices' && !empty($_POST['client_id']) && !empty($_POST['amount
         ]);
         $_SESSION['success_message'] = "Factuur succesvol aangemaakt!";
     }
+
+    // After invoice insert/update:
+    $invoiceId = !empty($_POST['edit_id']) ? $_POST['edit_id'] : $pdo->lastInsertId();
+
+    if (isset($_POST['lines']) && is_array($_POST['lines'])) {
+        // Remove old lines if editing
+        if (!empty($_POST['edit_id'])) {
+            $pdo->prepare("DELETE FROM invoice_items WHERE invoice_id = ?")->execute([$invoiceId]);
+        }
+        // Deduplicate lines by serializing their content
+        $uniqueLines = [];
+        foreach ($_POST['lines'] as $line) {
+            if (!empty($line['omschrijving']) && isset($line['aantal']) && isset($line['stuksprijs'])) {
+                $key = md5(json_encode([
+                    $line['omschrijving'],
+                    $line['aantal'],
+                    $line['stuksprijs'],
+                    $line['korting'] ?? 0
+                ]));
+                if (!isset($uniqueLines[$key])) {
+                    $uniqueLines[$key] = $line;
+                }
+            }
+        }
+        // Insert only unique lines
+        foreach ($uniqueLines as $line) {
+            $stmt = $pdo->prepare("INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, discount) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $invoiceId,
+                $line['omschrijving'],
+                $line['aantal'],
+                $line['stuksprijs'],
+                $line['korting'] ?? 0
+            ]);
+        }
+    }
+
+    // Add this redirect after everything is saved:
+    header("Location: ?page=invoices");
+    exit;
 }
     // Hours
 if ($page === 'hours' && !empty($_POST['date']) && !empty($_POST['hours'])) {
@@ -393,10 +433,19 @@ foreach ($hours as $h) {
                 $editInvoice = $pdo->prepare("SELECT * FROM invoices WHERE id = ?");
                 $editInvoice->execute([$_GET['id']]);
                 $invoice = $editInvoice->fetch();
+
+// Fetch invoice lines
+$invoiceLines = [];
+if ($invoice) {
+    $stmt = $pdo->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?");
+    $stmt->execute([$invoice['id']]);
+    $invoiceLines = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
             ?>
                 <form class="card" method="post" action="">
                     <h3>Factuur bewerken</h3>
                     <input type="hidden" name="edit_id" value="<?= $invoice['id'] ?>">
+                    <input type="hidden" name="number" value="<?= h($invoice['number'] ?? '') ?>">
                     <label>Klant <span class="required-star">*</span>
 <select name="client_id" id="clientSelect" required>
     <?php foreach ($clients as $c): ?>
@@ -421,6 +470,35 @@ foreach ($hours as $h) {
 <label>Merk
     <input type="text" name="car_model" value="<?= h($invoice['car_model'] ?? '') ?>">
 </label>
+<div class="invoice-lines-header">
+    <div>Omschrijving</div>
+    <div>Aantal</div>
+    <div>Stuksprijs</div>
+    <div>Korting %</div>
+    <div></div>
+</div>
+<div id="invoice-lines">
+    <?php if (!empty($invoiceLines)): ?>
+        <?php foreach ($invoiceLines as $i => $line): ?>
+            <div class="invoice-line">
+            <input type="text" name="lines[<?= $i ?>][omschrijving]" value="<?= h($line['description']) ?>">
+                <input type="number" name="lines[<?= $i ?>][aantal]" placeholder="Aantal" step="1" min="1" value="<?= h($line['quantity']) ?>">
+                <input type="number" name="lines[<?= $i ?>][stuksprijs]" placeholder="Stuksprijs" step="0.01" min="0" value="<?= h($line['unit_price']) ?>">
+                <input type="number" name="lines[<?= $i ?>][korting]" placeholder="Korting %" step="0.01" min="0" max="100" value="<?= h($line['discount']) ?>">
+<button type="button" class="remove-line">Verwijder</button> 
+           </div>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <div class="invoice-line">
+            <input type="text" name="lines[0][omschrijving]" placeholder="Omschrijving">
+            <input type="number" name="lines[0][aantal]" placeholder="Aantal" step="1" min="1">
+            <input type="number" name="lines[0][stuksprijs]" placeholder="Stuksprijs" step="0.01" min="0">
+            <input type="number" name="lines[0][korting]" placeholder="Korting %" step="0.01" min="0" max="100">
+            <button type="button" class="remove-line">Verwijder</button>
+         </div>
+    <?php endif; ?>
+</div>
+<button type="button" id="add-line" style="margin-bottom:1.5em;">+ Regel toevoegen</button>
                     <label>Bedrag (€) <span class="required-star">*</span>
                         <input type="number" name="amount" step="0.01" value="<?= h($invoice['amount']) ?>" required>
                     </label>
@@ -458,9 +536,27 @@ foreach ($hours as $h) {
 <label>Merk
     <input type="text" name="car_model" value="<?= h($invoice['car_model'] ?? '') ?>">
 </label>
+<div class="invoice-lines-header">
+    <div>Omschrijving</div>
+    <div>Aantal</div>
+    <div>Stuksprijs</div>
+    <div>Korting %</div>
+    <div></div>
+</div>
+<div id="invoice-lines">
+    <div class="invoice-line">
+        <input type="text" name="lines[0][omschrijving]" placeholder="Omschrijving">
+        <input type="number" name="lines[0][aantal]" placeholder="Aantal" step="1" min="1">
+        <input type="number" name="lines[0][stuksprijs]" placeholder="Stuksprijs" step="0.01" min="0">
+        <input type="number" name="lines[0][korting]" placeholder="Korting %" step="0.01" min="0" max="100">
+        <button type="button" class="remove-line" style="display:none;">Verwijder</button>
+    </div>
+</div>
+<button type="button" id="add-line" style="margin-bottom:1.5em;">+ Regel toevoegen</button>
                     <label>Bedrag (€) <span class="required-star">*</span>
                         <input type="number" name="amount" step="0.01" required>
                     </label>
+
                     <button type="submit">Factuur aanmaken</button>
                 </form>
             <?php endif; ?>
@@ -912,6 +1008,9 @@ const invoicingData = [
 const recentHoursLabels = <?= json_encode(array_map(fn($h) => date('d-m-Y', strtotime($h['date'])), $recentHours)) ?>;
 const recentHoursData = <?= json_encode(array_map(fn($h) => $h['hours'], $recentHours)) ?>;
 </script>
+<?php endif; ?>
+<?php if ($page === 'invoices'): ?>
+<script src="invoice-lines.js"></script>
 <?php endif; ?>
 <script>
 var allProjects = <?= json_encode($projects) ?>;

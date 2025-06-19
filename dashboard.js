@@ -169,6 +169,10 @@
                 if (!modal) return;
                 modal.style.display = 'flex';
                 document.getElementById('saveConfirmYes').onclick = function() {
+                    // Reindex invoice lines before submitting
+                    if (typeof reindexInvoiceLines === 'function') {
+                        reindexInvoiceLines();
+                    }
                     modal.style.display = 'none';
                     form.submit();
                 };

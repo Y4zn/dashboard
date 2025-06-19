@@ -32,6 +32,19 @@ body.dark-mode th, body.dark-mode td {
 body.dark-mode a {
     color: #60a5fa !important;
 }
+body.dark-mode #darkModeToggle {
+    background: #a1a1aa !important;
+    color: #18181b !important;
+    box-shadow: 0 2px 12px #0003;
+    border: 1.5px solid #393a40;
+    font-weight: 700;
+    transition: background 0.2s, color 0.2s;
+}
+body.dark-mode #darkModeToggle:hover,
+body.dark-mode #darkModeToggle:focus {
+    background: #a1a1aa !important;
+    border-color: #2563eb;
+}
 
 body.dark-mode input, 
 body.dark-mode select, 
@@ -66,6 +79,11 @@ body.dark-mode .modal-content {
     background: #23232a !important;
     color: #f3f4f6 !important;
     border-color: #333 !important;
+}
+.modal-content {
+    background: #fff !important;
+    color: #222 !important;
+    border: 1px solid #e5e7eb !important;
 }
 body.dark-mode a.delete-link,
 body.dark-mode a.delete-link:visited {
@@ -774,4 +792,118 @@ body.dark-mode .stat-badge-blue {
     color: #ef4444;
     margin-left: 2px;
     font-weight: bold;
+}
+.invoice-lines-header,
+.invoice-line {
+    display: flex;
+    gap: 1em;
+    align-items: center;
+}
+
+.invoice-lines-header {
+    font-weight: 600;
+    color: #222;           /* Make text black */
+    margin-bottom: 0.3em;
+    margin-top: 1em;       /* Add space from the top */
+}
+
+.invoice-lines-header > div,
+.invoice-line > input,
+.invoice-line > button {
+    /* These must match for perfect alignment */
+}
+
+.invoice-lines-header > div:nth-child(1),
+.invoice-line > input[type="text"] {
+    flex: 1.3 1 0;
+    min-width: 90px;
+    max-width: 220px;
+    /* You can tweak max-width as needed */
+}
+.invoice-lines-header > div:nth-child(2),
+.invoice-line > input[placeholder="Aantal"] {
+    flex: 1 1 0;
+    min-width: 60px;
+    max-width: 80px;
+}
+.invoice-lines-header > div:nth-child(3),
+.invoice-line > input[placeholder="Stuksprijs"] {
+    flex: 1 1 0;
+    min-width: 80px;
+    max-width: 100px;
+}
+.invoice-lines-header > div:nth-child(4),
+.invoice-line > input[placeholder="Korting %"] {
+    flex: 1 1 0;
+    min-width: 70px;
+    max-width: 90px;
+}
+.invoice-lines-header > div:nth-child(5),
+.invoice-line > input[placeholder="Bedrag"] {
+    flex: 1 1 0;
+    min-width: 90px;
+    max-width: 110px;
+}
+.invoice-lines-header > div:nth-child(6),
+.invoice-line > button.remove-line {
+    width: 90px;
+    flex: 0 0 90px;
+}
+
+.invoice-line > button.remove-line {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5em 0.7em;
+    cursor: pointer;
+    font-size: 0.95em;
+    margin-left: 0.5em;
+    white-space: nowrap;
+}
+#invoice-lines, .invoice-lines-header {
+    max-width: 900px;
+    min-width: 0;
+    overflow-x: auto;
+}
+@media (max-width: 1100px) {
+    .invoice-lines-header,
+    #invoice-lines {
+        min-width: 700px;
+    }
+    .invoice-lines-header > div:nth-child(1),
+    .invoice-line > input[type="text"] {
+        min-width: 80px;
+    }
+    .invoice-lines-header > div:nth-child(2),
+    .invoice-line > input[placeholder="Aantal"] {
+        min-width: 40px;
+    }
+    .invoice-lines-header > div:nth-child(3),
+    .invoice-line > input[placeholder="Stuksprijs"] {
+        min-width: 60px;
+    }
+    .invoice-lines-header > div:nth-child(4),
+    .invoice-line > input[placeholder="Korting %"] {
+        min-width: 50px;
+    }
+    .invoice-lines-header > div:nth-child(5),
+    .invoice-line > input[placeholder="Bedrag"] {
+        min-width: 60px;
+    }
+}
+
+/* Header table for PDF and dashboard */
+.header-table th, .header-table td {
+    white-space: nowrap;
+    text-align: center;
+    padding: 0.5em 1.5em;
+}
+.header-table th {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #ef4444;
+}
+.header-table td {
+    font-size: 1em;
 }
